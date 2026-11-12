@@ -1,5 +1,8 @@
 # 制作记录 — DFRoot_4.7-f966w-czjb-lock2.apk
 
+> 🌐 **English full text: [`BUILD_RECORD.en.md`](BUILD_RECORD.en.md)** — same sections, same numbers, same commands.
+> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+
 ## Abstract (English)
 
 A step-level manufacturing log for the locked temporary-root APK on Samsung Galaxy Z Fold7 (Canada)
@@ -698,6 +701,6 @@ pid:1, uid: 0, comm:init` 这条日志刚打完（`x6/x7/x13` 还是 `KernelSU` 
 两者都是 `Data Abort Exception 0x24` —— 内核已死时的**下游**用户态崩溃，不是独立故障。
 
 > 仍未确定：08:13 那个 APK 的确切版本号（设备上无残留：`pm list packages -u` 只剩当前包，
-> `/data/user/0` 无 08:xx 目录，`/data/adb/ksu/log` 只保留最近两个旋转）。要补这一格只只能靠当时的安装记录
+> `/data/user/0` 无 08:xx 目录，`/data/adb/ksu/log` 只保留最近两个旋转）。要补这一格只能靠当时的安装记录
 > 08:0x 时 `adb install` 的是哪个文件。**不影响结论**：崩塌点与当前 4 次成功所用的 manager 不同一实例。
 

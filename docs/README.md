@@ -7,12 +7,17 @@ This directory is the public version of the original working notes. It is organi
 
 | 文件 / file | 读它的目的 / why read it |
 |---|---|
-| `BUILD_RECORD.md` | 制造记录：工具链版本、9 个补丁逐个说明、payload 校验、7 项验证命令与期望哈希、换固件要改的常量 |
-| `REBOOT_TRIAGE.md` | 分诊：`/dev/df*` 标记含义、怎么取并读三星崩溃归档、判定表 |
-| `KP_CASE_STUDY.md` | 一次真实内核 panic 的完整定案过程（中英双语，可当教材） |
-| `DECISIONS.md` | 假设与决策日志：每条结论的证据等级、**被推翻的假设**、本机受限项 |
-| `BASELINE.md` | 所有输入/输出的 SHA-256 基线，以及纯 Python 的 LZ4 解帧方法 |
-| `DELIVERY.md` | 构建产物怎么装、怎么验证、怎么判失败、有哪些已知风险 |
+| `BUILD_RECORD.md` · [`BUILD_RECORD.en.md`](BUILD_RECORD.en.md) | 制造记录：工具链版本、9 个补丁逐个说明、payload 校验、7 项验证命令与期望哈希、换固件要改的常量 |
+| `REBOOT_TRIAGE.md` · [`REBOOT_TRIAGE.en.md`](REBOOT_TRIAGE.en.md) | 分诊：`/dev/df*` 标记含义、怎么取并读三星崩溃归档、判定表 |
+| `KP_CASE_STUDY.md` | 一次真实内核 panic 的完整定案过程（同一文件内中英对照，可当教材） |
+| `DECISIONS.md` · [`DECISIONS.en.md`](DECISIONS.en.md) | 假设与决策日志：每条结论的证据等级、**被推翻的假设**、原环境受限项 |
+| `BASELINE.md` · [`BASELINE.en.md`](BASELINE.en.md) | 所有输入/输出的 SHA-256 基线，以及纯 Python 的 LZ4 解帧方法 |
+| `DELIVERY.md` · [`DELIVERY.en.md`](DELIVERY.en.md) | 构建产物怎么装、怎么验证、怎么判失败、有哪些已知风险 |
+
+**语言 / language**：`NAME.md` 是中文正本，`NAME.en.md` 是逐节英文全文（同编号、同哈希、同命令）；
+冲突时以中文为准。`KP_CASE_STUDY.md` 两种语言在同一个文件里。
+`NAME.md` is the Chinese record; `NAME.en.md` is a section-by-section English translation with the
+same numbering, hashes and commands. The Chinese file wins on any conflict.
 
 ## 文中提到但**不在**本仓库的路径 / paths referenced but not shipped
 

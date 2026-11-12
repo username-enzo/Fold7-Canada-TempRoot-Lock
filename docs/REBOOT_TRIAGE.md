@@ -1,5 +1,8 @@
 # 黑屏重启 / root 失效 — 分诊与处置（2026-11-12）
 
+> 🌐 **English full text: [`REBOOT_TRIAGE.en.md`](REBOOT_TRIAGE.en.md)** — same sections, same numbers, same commands.
+> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+
 ## Abstract (English)
 
 Triage handbook for the two failure modes of this route: "the app says SUCCESS but the phone reboots"

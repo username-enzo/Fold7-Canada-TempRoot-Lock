@@ -1,5 +1,8 @@
 # 当前基准（BASELINE）
 
+> 🌐 **English full text: [`BASELINE.en.md`](BASELINE.en.md)** — same sections, same numbers, same commands.
+> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+
 ## Abstract (English)
 
 The baseline: SHA-256 of every input and output that the rest of the documentation refers to, plus

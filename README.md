@@ -237,12 +237,13 @@ README.md                     this file (bilingual)
 LICENSE                       GPL-2.0 — inherited from upstream DFRoot
 NOTICE.md                     third-party components, licences, where to download them
 docs/
-  BUILD_RECORD.md             step-level build recipe (toolchain, patches, hashes, verification)
-  REBOOT_TRIAGE.md            how to triage "rebooted / root gone" and read the crash logs
-  KP_CASE_STUDY.md            a full, solved kernel-panic case (bilingual teaching material)
-  DECISIONS.md                assumption/decision log, including retracted leads and local limits
-  BASELINE.md                 hashes of every input and output this repo talks about
-  DELIVERY.md                 install / verify / diagnose / risks for the built APK
+  BUILD_RECORD.md/.en.md      step-level build recipe (toolchain, patches, hashes, verification)
+  REBOOT_TRIAGE.md/.en.md     how to triage "rebooted / root gone" and read the crash logs
+  KP_CASE_STUDY.md            a full, solved kernel-panic case (bilingual in one file)
+  DECISIONS.md/.en.md         assumption/decision log, incl. retracted leads and local limits
+  BASELINE.md/.en.md          hashes of every input and output this repo talks about
+  DELIVERY.md/.en.md          install / verify / diagnose / risks for the built APK
+  README.md                   index, plus which paths in the docs are intentionally absent
 patches/
   dfroot-f966w.patch          9 files on top of upstream DFRoot 7a6513a (the lock + diagnostics)
 tools/
@@ -261,6 +262,12 @@ analysis/                     generated reports (gitignored)
 
 `docs/` 里提到的 `evidence/`、`deliverables/`、`TODO.md` 属于原工作目录，**未随仓库发布**，
 其作用与替代做法见 `docs/README.md`。
+
+**每个长文档都有完整英文版**：`NAME.md` 是中文正本，`NAME.en.md` 是逐节对应的英文全文
+（同编号、同哈希、同命令）。两者冲突时以中文为准。
+**Every long document has a full English twin**: `NAME.md` is the Chinese record of what was
+measured, `NAME.en.md` is a section-by-section English translation (same numbering, hashes and
+commands). Where they disagree, the Chinese file wins.
 
 ---
 

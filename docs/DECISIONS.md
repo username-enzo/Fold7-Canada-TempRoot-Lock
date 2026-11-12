@@ -1,5 +1,8 @@
 # 假设与决策（DECISIONS）
 
+> 🌐 **English full text: [`DECISIONS.en.md`](DECISIONS.en.md)** — same sections, same numbers, same commands.
+> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+
 ## Abstract (English)
 
 The reasoning log: every assumption, its evidence tag (`[T]` measured, `[S]` observed, `[A]` judged,

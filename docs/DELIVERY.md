@@ -1,5 +1,8 @@
 # 交付说明 — SM-F966W / CZJB 临时 Root APK
 
+> 🌐 **English full text: [`DELIVERY.en.md`](DELIVERY.en.md)** — same sections, same numbers, same commands.
+> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+
 ## Abstract (English)
 
 Hand-off notes for the built APK: what it does and does not prove, install order (SU manager first,
