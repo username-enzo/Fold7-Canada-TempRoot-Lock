@@ -1,0 +1,654 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 2f1ce68..33fc3c4 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -7,6 +7,13 @@ plugins {
+ val signingProps = Properties()
+ val signingPropsFile = rootProject.file("signing.properties")
+ if (signingPropsFile.exists()) signingProps.load(signingPropsFile.inputStream())
++// Local build note: no release keystore is created on this machine (the
++// environment's safety hook blocks .jks creation). When signing.properties is
++// absent, the release variant falls back to AGP's auto-generated debug key so
++// the APK is still installable. See DECISIONS.md in the project root.
++val hasReleaseKeystore = signingPropsFile.exists() &&
++        listOf("KEYSTORE_FILE", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
++                .all { !signingProps.getProperty(it).isNullOrBlank() }
+ 
+ android {
+     namespace = "df.root"
+@@ -20,8 +27,9 @@ android {
+         applicationId = "df.root"
+         minSdk = 32
+         targetSdk = 37
+-        versionCode = 407
+-        versionName = "4.7"
++        // F966W/CZJB lock build: 407 -> 4700 (distinct from upstream 4.7)
++        versionCode = 4701
++        versionName = "4.7-f966w-czjb-lock2"
+ 
+         ndk {
+             abiFilters += listOf("arm64-v8a")
+@@ -29,11 +37,13 @@ android {
+     }
+ 
+     signingConfigs {
+-        create("release") {
+-            storeFile = file(signingProps.getProperty("KEYSTORE_FILE"))
+-            storePassword = signingProps.getProperty("KEYSTORE_PASSWORD")
+-            keyAlias = signingProps.getProperty("KEY_ALIAS")
+-            keyPassword = signingProps.getProperty("KEY_PASSWORD")
++        if (hasReleaseKeystore) {
++            create("release") {
++                storeFile = file(signingProps.getProperty("KEYSTORE_FILE"))
++                storePassword = signingProps.getProperty("KEYSTORE_PASSWORD")
++                keyAlias = signingProps.getProperty("KEY_ALIAS")
++                keyPassword = signingProps.getProperty("KEY_PASSWORD")
++            }
+         }
+     }
+ 
+@@ -43,7 +53,7 @@ android {
+             signingConfig = signingConfigs.getByName("debug")
+         }
+         release {
+-            signingConfig = signingConfigs.getByName("release")
++            signingConfig = signingConfigs.getByName(if (hasReleaseKeystore) "release" else "debug")
+             isMinifyEnabled = true
+             isShrinkResources = true
+             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+@@ -59,11 +69,8 @@ android {
+         checkReleaseBuilds = false
+     }
+ 
+-    externalNativeBuild {
+-        cmake {
+-            path("src/main/jni/CMakeLists.txt")
+-        }
+-    }
++    // Native payloads are shipped prebuilt in src/main/jniLibs (upstream DFRoot 4.7
++    // release binaries); the exploit code is not rebuilt here.
+ 
+     packaging {
+         jniLibs {
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index ed266c0..8464876 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -7,7 +7,7 @@
+     <uses-permission android:name="android.permission.WAKE_LOCK" />
+     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+     <application
+-        android:label="DFRoot"
++        android:label="DFRoot F966W"
+         android:icon="@mipmap/ic_launcher"
+         android:roundIcon="@mipmap/ic_launcher_round"
+         android:allowBackup="false"
+diff --git a/app/src/main/java/df/root/BootReceiver.java b/app/src/main/java/df/root/BootReceiver.java
+index adbd631..fedbc24 100644
+--- a/app/src/main/java/df/root/BootReceiver.java
++++ b/app/src/main/java/df/root/BootReceiver.java
+@@ -24,6 +24,8 @@ public class BootReceiver extends BroadcastReceiver implements IReporter {
+         }
+         Log.i(TAG, "boot: " + intent.getAction());
+         final Context deCtx = context.createDeviceProtectedStorageContext();
++        Log.i(TAG, Diagnostics.bootBanner(deCtx));
++        Diagnostics.log(deCtx, "boot receiver: " + intent.getAction());
+         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+         PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dfroot:boot");
+         wl.acquire();
+diff --git a/app/src/main/java/df/root/DeviceLock.java b/app/src/main/java/df/root/DeviceLock.java
+new file mode 100644
+index 0000000..fea3f15
+--- /dev/null
++++ b/app/src/main/java/df/root/DeviceLock.java
+@@ -0,0 +1,80 @@
++package df.root;
++
++import android.os.Build;
++
++/**
++ * Hard firmware lock for the one target this build was made for:
++ *
++ *   Samsung Galaxy Z Fold7 (Canada) SM-F966W
++ *   Build   CP2A.260605.016.F966WVLUDCZJB  (One UI 9 / Android 17 / SDK 37)
++ *   Kernel  6.6.127-android15-8-p4a765df-abogkiF966USQUDCZJB-4k  (KMI android15-6.6)
++ *
++ * The DirtyFrag kernel module is matched per KMI, not per build, so the exploit
++ * itself would run on other android15-6.6 kernels as well. This lock is a safety
++ * net: it refuses to touch the kernel unless every field matches the device this
++ * APK was produced and reviewed for.
++ *
++ * Kernel strings are compared after normalising runs of whitespace, because some
++ * ROMs report the uname release with a double space before the build timestamp.
++ */
++final class DeviceLock {
++
++    static final String MODEL = "SM-F966W";
++    static final String BUILD_ID = "CP2A.260605.016.F966WVLUDCZJB";
++    // Samsung normally reports ro.build.id without the model suffix
++    // ("CP2A.260605.016") and keeps the full build number in ro.build.display.id.
++    static final String BUILD_ID_SHORT = "CP2A.260605.016";
++    static final String KERNEL_PREFIX =
++            "6.6.127-android15-8-p4a765df-abogkiF966USQUDCZJB-4k";
++    static final String FINGERPRINT_PREFIX =
++            "samsung/q7qcsx/q7q:17/CP2A.260605.016/";
++    static final int SDK_INT = 37;
++
++    private DeviceLock() {}
++
++    static String normalize(String value) {
++        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
++    }
++
++    static String kernelRelease() {
++        return normalize(System.getProperty("os.version", ""));
++    }
++
++    /** @return null when the device matches, otherwise a human readable refusal. */
++    static String check() {
++        StringBuilder bad = new StringBuilder();
++        if (!MODEL.equals(Build.MODEL)) {
++            bad.append("  model: expected ").append(MODEL)
++               .append(", got ").append(Build.MODEL).append('\n');
++        }
++        String display = normalize(Build.DISPLAY);
++        String buildId = normalize(Build.ID);
++        boolean buildOk = BUILD_ID.equals(buildId)
++                || BUILD_ID.equals(display)
++                || (buildId.startsWith(BUILD_ID_SHORT) && display.contains(BUILD_ID));
++        if (!buildOk) {
++            bad.append("  build: expected ").append(BUILD_ID)
++               .append(", got id=").append(buildId)
++               .append(" display=").append(display).append('\n');
++        }
++        if (Build.VERSION.SDK_INT != SDK_INT) {
++            bad.append("  sdk: expected ").append(SDK_INT)
++               .append(", got ").append(Build.VERSION.SDK_INT).append('\n');
++        }
++        String fingerprint = normalize(Build.FINGERPRINT);
++        if (!fingerprint.startsWith(FINGERPRINT_PREFIX)) {
++            bad.append("  fingerprint: expected prefix ").append(FINGERPRINT_PREFIX)
++               .append(", got ").append(fingerprint).append('\n');
++        }
++        String kernel = kernelRelease();
++        if (!kernel.startsWith(KERNEL_PREFIX)) {
++            bad.append("  kernel: expected prefix ").append(KERNEL_PREFIX)
++               .append(", got ").append(kernel).append('\n');
++        }
++        return bad.length() == 0 ? null : bad.toString();
++    }
++
++    static String describe() {
++        return "SM-F966W / " + BUILD_ID + " / KMI android15-6.6 (DirtyFrag)";
++    }
++}
+diff --git a/app/src/main/java/df/root/Diagnostics.java b/app/src/main/java/df/root/Diagnostics.java
+new file mode 100644
+index 0000000..1612ff5
+--- /dev/null
++++ b/app/src/main/java/df/root/Diagnostics.java
+@@ -0,0 +1,272 @@
++package df.root;
++
++import android.content.Context;
++import android.os.SystemClock;
++
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.RandomAccessFile;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.text.SimpleDateFormat;
++import java.util.ArrayList;
++import java.util.Date;
++import java.util.LinkedHashMap;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++
++/**
++ * Local build only (not upstream): run-time forensics.
++ *
++ * DFRoot's chain is asynchronous: the Java exploit process exits long before the
++ * libc++ hook fires in init, and bootstrap.c / ksud report progress only through
++ * marker files in /dev. Those markers vanish when the kernel restarts, so a device
++ * that panics leaves no trace of how far it got. This class mirrors everything into
++ * a file in device-protected storage (survives reboot, no unlock needed) so the
++ * outcome of a crashed run can still be read on the next boot.
++ */
++final class Diagnostics {
++
++    private static final String LOG_FILE = "diag.log";
++    private static final long MAX_LOG = 400 * 1024;
++
++    /** Marker files created by lkm/dfroot.c and jni/bootstrap.c. */
++    private static final Map<String, String> MARKERS = new LinkedHashMap<>();
++    static {
++        MARKERS.put("/dev/df",     "shellcode ran in init (ko written, insmod path taken)");
++        MARKERS.put("/dev/dfm0",   "dfroot.ko -> usermodehelper started sh");
++        MARKERS.put("/dev/dfm1",   "bootstrap main() started");
++        MARKERS.put("/dev/dfm2",   "bootstrap read prefs (su_manager found)");
++        MARKERS.put("/dev/dfm3",   "bootstrap: zygote env adopted");
++        MARKERS.put("/dev/dfm4",   "bootstrap: KSU modules disabled");
++        MARKERS.put("/dev/dfm5",   "bootstrap: about to exec ksud late-load");
++        MARKERS.put("/dev/dfm6",   "ksud late-load EXITED 0  (KernelSU really loaded)");
++        MARKERS.put("/dev/dfme0",  "ERROR bootstrap: prefs unreadable / no su_manager");
++        MARKERS.put("/dev/dfme1",  "ERROR bootstrap: disable_modules failed");
++        MARKERS.put("/dev/dfme2",  "ERROR ksud late-load EXITED NONZERO (root not installed)");
++        MARKERS.put("/dev/dfmw0",  "warn bootstrap: adopt_zygote_env failed");
++        MARKERS.put("/dev/dfmw1",  "warn bootstrap: set_partitions_ro failed");
++    }
++
++    /** Verdict codes returned by awaitMarkers(), mapped by ExploitRunner. */
++    static final int VERDICT_KSUD_OK = 0;
++    static final int VERDICT_KSUD_FAIL = 4;
++    static final int VERDICT_STALLED = 5;
++
++    private Diagnostics() {}
++
++    // ---- persistent log -------------------------------------------------------
++
++    static synchronized void log(Context ctx, String msg) {
++        File f = new File(ctx.getFilesDir(), LOG_FILE);
++        try {
++            if (f.exists() && f.length() > MAX_LOG) trimHead(f, MAX_LOG / 2);
++            try (FileOutputStream os = new FileOutputStream(f, true)) {
++                os.write(line(msg).getBytes(StandardCharsets.UTF_8));
++                os.flush();
++                os.getFD().sync();
++            }
++        } catch (Exception ignored) {
++        }
++    }
++
++    private static String line(String msg) {
++        long wall = System.currentTimeMillis();
++        String stamp = new SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(new Date(wall));
++        return String.format(Locale.US, "%s up=%5.1fs %s%n",
++                stamp, SystemClock.uptimeMillis() / 1000.0, msg.trim());
++    }
++
++    private static void trimHead(File f, long keep) throws Exception {
++        try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
++            long len = raf.length();
++            if (len <= keep) return;
++            raf.seek(len - keep);
++            while (raf.getFilePointer() < len && raf.read() != '\n') raf.seek(raf.getFilePointer() + 1);
++            byte[] tail = new byte[(int) (len - raf.getFilePointer())];
++            raf.readFully(tail);
++            raf.setLength(0);
++            raf.write(tail);
++        }
++    }
++
++    static synchronized List<String> tail(Context ctx, int n) {
++        File f = new File(ctx.getFilesDir(), LOG_FILE);
++        List<String> out = new ArrayList<>();
++        if (!f.exists()) return out;
++        try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
++            long pos = raf.length();
++            int lines = 0;
++            while (pos > 0 && lines < n) {
++                pos--;
++                raf.seek(pos);
++                if (raf.read() == '\n') lines++;
++            }
++            raf.seek(pos);
++            byte[] rest = new byte[(int) (raf.length() - pos)];
++            raf.readFully(rest);
++            for (String s : new String(rest, StandardCharsets.UTF_8).split("\\R"))
++                if (!s.isEmpty()) out.add(s);
++        } catch (Exception ignored) {
++        }
++        return out;
++    }
++
++    // ---- run boundaries -------------------------------------------------------
++
++    static void runStart(Context ctx, String source) {
++        log(ctx, String.format(Locale.US, "=== RUN START (%s) manager=%s soft_reboot=%s disable_modules=%s /dev/df=%s",
++                source,
++                ctx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE)
++                        .getString(ExploitRunner.PREF_SU_MANAGER, "<none>"),
++                ctx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE)
++                        .getBoolean(ExploitRunner.PREF_SOFT_REBOOT, false),
++                ctx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE)
++                        .getBoolean(ExploitRunner.PREF_DISABLE_MODULES, false),
++                new File("/dev/df").exists()));
++    }
++
++    static void runEnd(Context ctx, String verdict) {
++        log(ctx, "=== RUN END " + verdict + " ===");
++    }
++
++    // ---- boot forensics -------------------------------------------------------
++
++    private static String bootId() {
++        try {
++            return new String(Files.readAllBytes(
++                    new File("/proc/sys/kernel/random/boot_id").toPath())).trim();
++        } catch (Exception e) {
++            return "unknown";
++        }
++    }
++
++    private static String prop(String key) {
++        try {
++            return (String) Class.forName("android.os.SystemProperties")
++                    .getMethod("get", String.class, String.class).invoke(null, key, "?");
++        } catch (Exception e) {
++            return "?";
++        }
++    }
++
++    /**
++     * Called once at process start. Writes a boot banner and returns the previous
++     * boot's tail so a crash that rebooted the phone is still readable.
++     */
++    static synchronized String bootBanner(Context ctx) {
++        String id = bootId();
++        boolean sameBoot = id.equals(lastBootId(ctx));
++        StringBuilder sb = new StringBuilder();
++        sb.append(String.format(Locale.US,
++                "* boot id %s%s%n* bootreason: ro.boot.bootreason=%s | sys.boot.reason=%s%n",
++                id, sameBoot ? " (same kernel boot as last run)" : " (NEW kernel boot)",
++                prop("ro.boot.bootreason"), prop("sys.boot.reason")));
++        if (!sameBoot) {
++            List<String> prev = tail(ctx, 14);
++            if (!prev.isEmpty()) {
++                sb.append("* last lines of the previous kernel boot (see ")
++                  .append(LOG_FILE).append("):").append(System.lineSeparator());
++                for (String s : prev) sb.append("  ").append(s).append(System.lineSeparator());
++            }
++        }
++        log(ctx, String.format(Locale.US, "=== BOOT id=%s ro.boot.bootreason=%s sys.boot.reason=%s ===",
++                id, prop("ro.boot.bootreason"), prop("sys.boot.reason")));
++        saveBootId(ctx, id);
++        return sb.toString();
++    }
++
++    private static String lastBootId(Context ctx) {
++        File f = new File(ctx.getFilesDir(), "last_boot_id");
++        try {
++            return f.exists() ? new String(Files.readAllBytes(f.toPath())).trim() : null;
++        } catch (Exception e) {
++            return null;
++        }
++    }
++
++    private static void saveBootId(Context ctx, String id) {
++        try {
++            Files.write(new File(ctx.getFilesDir(), "last_boot_id").toPath(),
++                    id.getBytes(StandardCharsets.UTF_8));
++        } catch (Exception ignored) {
++        }
++    }
++
++    // ---- marker watcher -------------------------------------------------------
++
++    /** Starts a daemon thread that appends every newly appearing marker to the log. */
++    static Thread watchMarkers(final Context ctx) {
++        Thread t = new Thread(new Runnable() {
++            @Override public void run() {
++                LinkedHashSet<String> seen = new LinkedHashSet<>();
++                for (Map.Entry<String, String> e : MARKERS.entrySet())
++                    if (new File(e.getKey()).exists()) note(ctx, seen, e, "already present");
++                while (!Thread.currentThread().isInterrupted()) {
++                    for (Map.Entry<String, String> e : MARKERS.entrySet()) {
++                        if (seen.contains(e.getKey())) continue;
++                        if (new File(e.getKey()).exists()) note(ctx, seen, e, "appeared");
++                    }
++                    try {
++                        Thread.sleep(150);
++                    } catch (InterruptedException ie) {
++                        return;
++                    }
++                }
++            }
++        }, "dfroot-markers");
++        t.setDaemon(true);
++        t.start();
++        return t;
++    }
++
++    private static void note(Context ctx, LinkedHashSet<String> seen,
++                             Map.Entry<String, String> e, String verb) {
++        seen.add(e.getKey());
++        String msg = "* marker " + e.getKey() + " " + verb + " - " + e.getValue();
++        log(ctx, msg);
++    }
++
++    /**
++     * bootstrap.c only creates dfm5/dfm6 long after the exploit process has exited
++     * (the libc++ hook fires when init reaps the orphaned grandchild), and upstream
++     * treats "bootstrap returned 0" as SUCCESS even when ksud itself failed: main()
++     * returns 0 in both branches. So wait for the real marker and judge by that.
++     */
++    static int awaitMarkers(Context ctx, IReporter rep, long timeoutMs) {
++        long end = System.currentTimeMillis() + timeoutMs;
++        while (System.currentTimeMillis() < end) {
++            if (new File("/dev/dfme2").exists()) {
++                rep.report("* ksud late-load reported an error (/dev/dfme2) - KernelSU was NOT installed\n");
++                return VERDICT_KSUD_FAIL;
++            }
++            if (new File("/dev/dfm6").exists()) {
++                rep.report("* ksud late-load finished cleanly (/dev/dfm6) - KernelSU is loaded\n");
++                return VERDICT_KSUD_OK;
++            }
++            try {
++                Thread.sleep(250);
++            } catch (InterruptedException ie) {
++                return VERDICT_STALLED;
++            }
++        }
++        List<String> seenMarkers = new ArrayList<>();
++        for (String m : MARKERS.keySet())
++            if (new File(m).exists()) seenMarkers.add(m);
++        rep.report("* timed out after " + (timeoutMs / 1000) + "s. markers present: "
++                + seenMarkers + "\n  If /dev/dfm5 is there but /dev/dfm6 is not, the kernel died inside"
++                + " ksud late-load (KernelSU module), not inside the exploit.\n");
++        return VERDICT_STALLED;
++    }
++
++    static String describeMarkers() {
++        StringBuilder sb = new StringBuilder();
++        for (Map.Entry<String, String> e : MARKERS.entrySet())
++            if (new File(e.getKey()).exists())
++                sb.append("  ").append(e.getKey()).append(" = ").append(e.getValue()).append(System.lineSeparator());
++        if (sb.length() == 0) sb.append("  (none - nothing of the chain ran in this kernel boot)").append(System.lineSeparator());
++        return sb.toString();
++    }
++}
+diff --git a/app/src/main/java/df/root/ExploitRunner.java b/app/src/main/java/df/root/ExploitRunner.java
+index 0d3170c..1ea76b6 100644
+--- a/app/src/main/java/df/root/ExploitRunner.java
++++ b/app/src/main/java/df/root/ExploitRunner.java
+@@ -24,8 +24,15 @@ public class ExploitRunner {
+     static final String PREFS_NAME       = "dfroot";
+     static final String PREF_SOFT_REBOOT = "soft_reboot";
+     static final String PREF_SU_MANAGER  = "su_manager";
++    static final String PREF_DISABLE_MODULES = "disable_modules";
+     private static final String NATIVE_BIN    = "libdfroot.so";
+ 
++    // Local build (see REBOOT_TRIAGE.md in the project root): the SU manager's
++    // soft-reboot path is a known source of unexpected restarts on Samsung, so this
++    // locked build pins it off. bootstrap.c reads the prefs XML directly, hence the
++    // synchronous commit() here.
++    private static final boolean FORCE_NO_SOFT_REBOOT = true;
++
+     private static String getSystemProperty(String key, String def) {
+         try {
+             Class<?> cls = Class.forName("android.os.SystemProperties");
+@@ -47,6 +54,16 @@ public class ExploitRunner {
+             reporter.report("already hooked, skipping\n");
+             return 0;
+         }
++        String lock = DeviceLock.check();
++        if (lock != null) {
++            reporter.report("PROFILE LOCK: this APK is locked to "
++                    + DeviceLock.describe() + "\nRefusing to run on this device:\n"
++                    + lock + "\n");
++            return 3;
++        }
++        reporter.report("* locked profile: " + DeviceLock.describe() + "\n");
++        Diagnostics.log(ctx, "--- DFRoot " + BuildConfig.VERSION_NAME
++                + " (build " + BuildConfig.VERSION_CODE + ") ---");
+         reportDeviceInfo(reporter);
+         String logTag = getSystemProperty("persist.log.tag", "");
+         if (!logTag.isEmpty() && Character.toUpperCase(logTag.charAt(0)) == 'S') {
+@@ -56,6 +73,11 @@ public class ExploitRunner {
+         }
+         File bin = new File(ctx.getApplicationInfo().nativeLibraryDir, NATIVE_BIN);
+         SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
++        if (FORCE_NO_SOFT_REBOOT && prefs.getBoolean(PREF_SOFT_REBOOT, false)) {
++            prefs.edit().putBoolean(PREF_SOFT_REBOOT, false).commit();
++            reporter.report("* this build pins 'Auto Soft Reboot' OFF (ksud soft-reboot is a\n" +
++                            "  known cause of unexpected restarts on Samsung)\n");
++        }
+         String suManagerPackage = prefs.getString(PREF_SU_MANAGER, null);
+         if (suManagerPackage == null) {
+             reporter.report("no SU manager selected\n");
+@@ -93,10 +115,21 @@ public class ExploitRunner {
+                 .setIpv4Encapsulation(encapSock, senderPort)
+                 .buildTransportModeTransform(loopback, spiObj);
+ 
++        Diagnostics.runStart(ctx, "manual");
++        Thread watcher = Diagnostics.watchMarkers(ctx);
++        int rc;
+         try {
+-            return runBinary(bin, reporter, encapSock.getPort(), spiObj.getSpi(),
+-                    aesKey, senderPort);
++            rc = runBinary(bin, reporter, encapSock.getPort(), spiObj.getSpi(), aesKey, senderPort);
++            reporter.report("* exploit binary exited rc=" + rc + "; waiting for the init hook to fire...\n");
++            if (rc != 0) {
++                Diagnostics.runEnd(ctx, "exploit binary rc=" + rc);
++                return rc;
++            }
++            int verdict = Diagnostics.awaitMarkers(ctx, reporter, 90_000);
++            Diagnostics.runEnd(ctx, "exploit rc=0, verdict=" + verdictName(verdict));
++            return verdict;
+         } finally {
++            watcher.interrupt();
+             transform.close();
+             spiObj.close();
+             encapSock.close();
+@@ -144,6 +177,14 @@ public class ExploitRunner {
+         return p.waitFor();
+     }
+ 
++    private static String verdictName(int v) {
++        switch (v) {
++            case Diagnostics.VERDICT_KSUD_OK:   return "KernelSU loaded (dfm6)";
++            case Diagnostics.VERDICT_KSUD_FAIL: return "ksud late-load failed (dfme2)";
++            default:                            return "stalled / no final marker";
++        }
++    }
++
+     private static String hex(byte[] b) {
+         StringBuilder sb = new StringBuilder(b.length * 2);
+         for (byte x : b) sb.append(String.format("%02x", x));
+diff --git a/app/src/main/java/df/root/MainActivity.java b/app/src/main/java/df/root/MainActivity.java
+index 28f8c0a..41d9ce8 100644
+--- a/app/src/main/java/df/root/MainActivity.java
++++ b/app/src/main/java/df/root/MainActivity.java
+@@ -43,6 +43,7 @@ public class MainActivity extends Activity implements IReporter {
+     private final Handler mMain = new Handler(Looper.getMainLooper());
+     private final Executor mExec = Executors.newSingleThreadExecutor();
+     private int mValidSuManagerPos = 0;
++    private boolean mLockOk = false;
+ 
+     @Override
+     public void report(String msg) {
+@@ -59,7 +60,7 @@ public class MainActivity extends Activity implements IReporter {
+         mDeCtx = createDeviceProtectedStorageContext();
+         setContentView(R.layout.activity_main);
+ 
+-        getActionBar().setSubtitle("@diabl0w github/xda");
++        getActionBar().setSubtitle("@diabl0w github/xda · F966W/CZJB lock");
+ 
+         btnRun = findViewById(R.id.btnRun);
+         outputScroll = findViewById(R.id.outputScroll);
+@@ -106,6 +107,13 @@ public class MainActivity extends Activity implements IReporter {
+             public void onNothingSelected(AdapterView<?> parent) {}
+         });
+ 
++        String lock = DeviceLock.check();
++        mLockOk = lock == null;
++        report(mLockOk
++                ? "Locked profile OK: " + DeviceLock.describe() + "\n"
++                : "PROFILE LOCK: this build refuses to run on this device:\n" + lock + "\n");
++        report(Diagnostics.bootBanner(mDeCtx));
++
+         updateRunButton();
+ 
+         btnRun.setOnClickListener(v -> {
+@@ -127,19 +135,34 @@ public class MainActivity extends Activity implements IReporter {
+             startActivity(new Intent(this, SettingsActivity.class));
+             return true;
+         }
++        if (item.getItemId() == R.id.action_log) {
++            StringBuilder sb = new StringBuilder("\n--- run log (df.root/files/diag.log) ---\n");
++            for (String s : Diagnostics.tail(mDeCtx, 120)) sb.append(s).append(System.lineSeparator());
++            report(sb.toString());
++            return true;
++        }
++        if (item.getItemId() == R.id.action_markers) {
++            report("\n--- /dev markers present now ---\n" + Diagnostics.describeMarkers());
++            return true;
++        }
+         return super.onOptionsItemSelected(item);
+     }
+ 
+     private void updateRunButton() {
+-        btnRun.setEnabled(mValidSuManagerPos >= 1 && !new File("/dev/df").exists());
++        btnRun.setEnabled(mLockOk && mValidSuManagerPos >= 1 && !new File("/dev/df").exists());
+     }
+ 
+     private void runExploit() {
+         try {
+             int rc = ExploitRunner.run(mDeCtx, this);
+-            String msg = rc == 0 ? "DFRoot: SUCCESS"
++            String msg = rc == 0 ? "DFRoot: SUCCESS (KernelSU loaded)"
+                        : rc == 1 ? "DFRoot: Error - ksud nonzero exit"
+                        : rc == 2 ? "DFRoot: Error - check logcat & dmesg"
++                       : rc == 3 ? "DFRoot: Error - profile mismatch (wrong device/build)"
++                       : rc == Diagnostics.VERDICT_KSUD_FAIL
++                         ? "DFRoot: exploit OK but ksud late-load FAILED - no root"
++                       : rc == Diagnostics.VERDICT_STALLED
++                         ? "DFRoot: chain never finished - see Run log / Markers now"
+                        : "DFRoot: Error - failed to patch files";
+             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
+         } catch (Exception e) {
+diff --git a/app/src/main/java/df/root/SettingsFragment.java b/app/src/main/java/df/root/SettingsFragment.java
+index 7497e0c..e060d7e 100644
+--- a/app/src/main/java/df/root/SettingsFragment.java
++++ b/app/src/main/java/df/root/SettingsFragment.java
+@@ -34,6 +34,10 @@ public class SettingsFragment extends PreferenceFragment {
+ 
+         SwitchPreference softRebootPref = (SwitchPreference) findPreference("soft_reboot");
+         softRebootPref.setPersistent(false);
++        // F966W/CZJB lock build: pinned off, the SU manager's soft-reboot path has a
++        // history of unexpected restarts on Samsung (REBOOT_TRIAGE.md).
++        softRebootPref.setEnabled(false);
++        softRebootPref.setSummary("Disabled in this build: forced OFF before every run.");
+         softRebootPref.setChecked(dePrefs.getBoolean("soft_reboot", false));
+         softRebootPref.setOnPreferenceChangeListener((pref, value) -> {
+             dePrefs.edit().putBoolean("soft_reboot", (Boolean) value).apply();
+diff --git a/app/src/main/res/menu/main_menu.xml b/app/src/main/res/menu/main_menu.xml
+index 1d78e06..c174785 100644
+--- a/app/src/main/res/menu/main_menu.xml
++++ b/app/src/main/res/menu/main_menu.xml
+@@ -5,4 +5,12 @@
+         android:icon="@drawable/ic_settings"
+         android:title="Settings"
+         android:showAsAction="always" />
++    <item
++        android:id="@+id/action_log"
++        android:title="Run log"
++        android:showAsAction="never" />
++    <item
++        android:id="@+id/action_markers"
++        android:title="Markers now"
++        android:showAsAction="never" />
+ </menu>

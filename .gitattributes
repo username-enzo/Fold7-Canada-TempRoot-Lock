@@ -1,0 +1,7 @@
+# 补丁与脚本必须是 LF，否则 git checkout 后会 apply 失败
+# patches and scripts must stay LF or `git apply` breaks after a checkout
+*.patch   text eol=lf
+*.sh      text eol=lf
+*.py      text eol=lf
+*.md      text eol=lf
+*.bat     text eol=crlf

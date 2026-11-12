@@ -1,0 +1,27 @@
+# 你的固件与生成物（体积大 / 含设备标识，永不提交）
+# your firmware and generated artifacts (large / identifying - never committed)
+firmware/*
+!firmware/README.md
+analysis/*
+!analysis/README.md
+
+# 环境与源码树，由 setup_toolchain.sh 重建
+# environment and source tree, rebuilt by setup_toolchain.sh
+toolchain/
+src/
+
+# 构建产物与签名材料
+# build outputs and signing material
+*.apk
+*.aab
+*.jks
+*.keystore
+signing.properties
+
+# 取证输出（含设备标识）
+# evidence dumps (contain device identifiers)
+evidence/
+
+# Python
+__pycache__/
+*.pyc
