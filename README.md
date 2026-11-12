@@ -261,9 +261,10 @@ analysis/                     generated reports (gitignored)
 Paths the documents mention that are **not** in this repo (`evidence/`, `deliverables/`, `TODO.md`) are
 explained in [`docs/README.md`](docs/README.md).
 
-**Language convention**: `NAME.md` is the English edition, `NAME.zh-CN.md` is the Chinese record of
-what was measured (identical section numbers, hashes and commands). Where they disagree, the Chinese
-file wins.
+**Language convention**: every Markdown file follows the same rule — `NAME.md` is the English
+edition (and what GitHub shows by default), `NAME.zh-CN.md` is the Chinese record of what was
+measured, with identical section numbers, hashes and commands. Where they disagree, the Chinese
+file wins. This includes the small in-directory READMEs under `firmware/` and `analysis/`.
 
 ---
 

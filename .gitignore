@@ -2,8 +2,10 @@
 # your firmware and generated artifacts (large / identifying - never committed)
 firmware/*
 !firmware/README.md
+!firmware/README.zh-CN.md
 analysis/*
 !analysis/README.md
+!analysis/README.zh-CN.md
 
 # 环境与源码树，由 setup_toolchain.sh 重建
 # environment and source tree, rebuilt by setup_toolchain.sh

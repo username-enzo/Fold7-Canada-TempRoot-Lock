@@ -248,8 +248,9 @@ analysis/                     生成的报告（已 gitignore）
 文档里提到的 `evidence/`、`deliverables/`、`TODO.md` 属于原工作目录，**未随仓库发布**，说明见
 [`docs/README.zh-CN.md`](docs/README.zh-CN.md)。
 
-**语言约定**：`NAME.md` 是英文版（主），`NAME.zh-CN.md` 是中文正本 —— 章节号、哈希、命令完全一致；
-两者冲突时以中文文件为准。
+**语言约定**：所有 Markdown 都遵循同一条规则 —— `NAME.md` 是英文版（GitHub 默认显示这份），
+`NAME.zh-CN.md` 是中文正本，章节号、哈希、命令完全一致；两者冲突时以中文文件为准。
+`firmware/`、`analysis/` 下的两个小 README 也按这条规则拆开了。
 
 ---
 
