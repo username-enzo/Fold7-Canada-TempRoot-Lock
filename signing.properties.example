@@ -1,17 +1,17 @@
-# 复制为 signing.properties 后填写，build.sh 就会用你自己的 release key 签名。
 # Copy to signing.properties and fill in to sign with your own release key.
+# 复制为 signing.properties 后填写，build.sh 就会用你自己的 release key 签名。
 #
+# Building without this file falls back to AGP's debug key: installable, but it cannot
+# replace the official `df.root` because the signature differs.
 # 不填也可以构建：会自动回退到 AGP 生成的 debug 证书，APK 仍可安装，
 # 但无法覆盖官方 `df.root`（签名不同）。
-# Building without this file falls back to AGP's debug key: installable, but it
-# cannot replace the official `df.root` because the signature differs.
 #
-# 生成 keystore / create one:
+# Create one / 生成 keystore：
 #   keytool -genkeypair -v -keystore my-release.jks -keyalg RSA -keysize 4096 \
 #           -validity 10000 -alias dfroot
 #
-# 注意：keystore 与这些密码都不要提交（.gitignore 已排除 *.jks / signing.properties）。
 # Never commit the keystore or these passwords (.gitignore already excludes them).
+# keystore 与这些密码都不要提交（.gitignore 已排除 *.jks / signing.properties）。
 
 storeFile=my-release.jks
 storePassword=CHANGE_ME

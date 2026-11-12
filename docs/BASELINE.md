@@ -1,42 +1,37 @@
-# 当前基准（BASELINE）
+# Baseline (English)
 
-> 🌐 **English full text: [`BASELINE.en.md`](BASELINE.en.md)** — same sections, same numbers, same commands.
-> 中文正文在下方；两份以中文为记录正本（数值冲突时以中文为准）。
+> English edition. Chinese original: [`BASELINE.zh-CN.md`](BASELINE.zh-CN.md) — that file is the record of what was
+> measured; where the two disagree, the Chinese file wins. Section numbers are identical.
 
-## Abstract (English)
+Verification time: 2026-11-11 20:23 UTC (machine clock)
+Verification host: Windows 11 + Git Bash, Python 3.11.9, JDK 17.0.20 (Temurin), `PI_OFFLINE=1` (no network)
+Verified by: `pi agent` — every number in this file was recomputed with local commands, not quoted from older notes.
 
-The baseline: SHA-256 of every input and output that the rest of the documentation refers to, plus
-the pure-Python LZ4-frame decoder used to unpack `boot.img.lz4` without any Samsung tooling. Hashes
-are how you prove you are looking at the same kernel image as this record — check them first when
-something does not reproduce.
+## 1. Folder inventory
 
-核对时间：2026-11-11 20:23 UTC（本机 UTC）
-核对机器：Windows 11 + Git Bash，Python 3.11.9，JDK 17.0.20（Temurin），`PI_OFFLINE=1`（无网络）
-核对人：pi agent（本次会话全部数值由本机命令重新计算，不是引用旧档案）
-
-## 1. 文件夹清单
-
-| 路径 | bytes | SHA-256 |
+| Path | bytes | SHA-256 |
 |---|---:|---|
 | `F966W-Temporary-Root-BBZG3-lock6.1-repeat70.apk` | 52,801,629 | `0f7180effd434cfc841676850b970ab9057b6afc4b85a5cdf180c4bcc19473a2` |
-| `对话归档（未随仓库提供）` | 63,803 | 1,683 行 |
+| `conversation archive (not shipped)` | 63,803 | 1,683 lines |
 | `firmware/boot.img.lz4` | 22,797,350 | `a5bebd0959dd15a0597c6a1a8d5b07c71c7d0943268bf48e7ce18da9d34f6170` |
-| `firmware/AP_F966WVLUDCZJB_..._OS17内包含的文件清单截图.jpg` | 338,482 | — |
+| `firmware/AP_F966WVLUDCZJB_..._OS17 file list screenshot.jpg` | 338,482 | — |
 
-两个哈希与档案第 5.1 / 9.1 节记录的完全一致 → 本地文件就是档案所指的那两份成品/上传件，不是同名副本。
+Both hashes match §5.1 / §9.1 of the original notes exactly, so the local files are the very
+artifacts those notes refer to, not similarly named copies.
 
-## 2. 已交付 APK（Lock6.1）内部实况
+## 2. What the delivered APK (Lock6.1) actually contains
 
-APK 共 134 个条目。关键载荷（本次从 APK 内解出后重新计算）：
+The APK has 134 entries. Key payloads, recomputed from the APK during this pass:
 
-| 条目 | bytes | SHA-256 | 与档案一致 |
+| Entry | bytes | SHA-256 | matches notes |
 |---|---:|---|---|
-| `assets/locked_payloads/cve-2026-43499-app.so` | 126,264 | `d809061172eb825a43571eaeb10d8a898d32db6f28a1f2fb90bae6b318a8068f` | 是 |
-| `assets/locked_payloads/ksud-s25u-kdp` | 6,407,096 | `fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63` | 是 |
-| `lib/arm64-v8a/libcve43499root.so` | 26,024 | `c6b0612b6bdbd60ded964694284f7e8d81cfff2079abeaf3b8854952c2b49eec` | 档案未记录 |
-| `lib/arm64-v8a/libs25u_native.so` | 11,192 | `3104f3c15288a9a285f779c99d6768db7ed71d20c9606b1783fd344fd947fa26` | 档案未记录 |
+| `assets/locked_payloads/cve-2026-43499-app.so` | 126,264 | `d809061172eb825a43571eaeb10d8a898d32db6f28a1f2fb90bae6b318a8068f` | yes |
+| `assets/locked_payloads/ksud-s25u-kdp` | 6,407,096 | `fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63` | yes |
+| `lib/arm64-v8a/libcve43499root.so` | 26,024 | `c6b0612b6bdbd60ded964694284f7e8d81cfff2079abeaf3b8854952c2b49eec` | not recorded |
+| `lib/arm64-v8a/libs25u_native.so` | 11,192 | `3104f3c15288a9a285f779c99d6768db7ed71d20c9606b1783fd344fd947fa26` | not recorded |
 
-从 `classes3.dex` 提取到的、成品 APK 里真正生效的锁定配置（比旧档案的"残留源码"可信）：
+The lock configuration that is actually in effect in the built APK, extracted from `classes3.dex`
+(more trustworthy than "leftover sources" in the older notes):
 
 ```text
 applicationId            dev.busung.f966w.temproot.lock6
@@ -47,117 +42,129 @@ buildId                  BP4A.251205.006.F966WVLSBBZG3
 csc/build marker         F966WVLSBBZG3
 kernelRelease            6.6.98-android15-8-pd6ff1cd-abogkiF966USQSBBZG3-4k
 fingerprintPrefix        samsung/q7qcsx/q7q:16/BP4A.251205.006/
-STACK_WRITER_DELAY_USEC  70000        (= 70 毫秒，不是 70 秒)
+STACK_WRITER_DELAY_USEC  70000        (= 70 milliseconds, not 70 seconds)
 PAYLOAD_COMMIT           536a0968077cbc213188ae7895bb688ea21ee779
-内置下载 URL             raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/536a0968.../artifacts/q7q-F966USQSBBZG3/cve-2026-43499-app.so
+built-in download URLs   raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/536a0968.../artifacts/q7q-F966USQSBBZG3/cve-2026-43499-app.so
                          raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/536a0968.../kernelsu/ksud-s25u-kdp
-上游源码 revision        1f2f062503b8da342b39f03f7ba0704a8aa794ac（META-INF/version-control-info.textproto）
+upstream source revision 1f2f062503b8da342b39f03f7ba0704a8aa794ac (META-INF/version-control-info.textproto)
 AGP                      9.2.1
-界面文案                 "Canadian Galaxy Z Fold7 (SM-F966W / BBZG3 locked)"
+UI string                "Canadian Galaxy Z Fold7 (SM-F966W / BBZG3 locked)"
 ```
 
-APK 内 `META-INF/` 没有 `.RSA/.SF/.MF` → 与档案记录的"仅 v2 签名"一致。
+`META-INF/` contains no `.RSA/.SF/.MF`, i.e. v2-only signing, consistent with the older notes.
 
-**结论：这个 APK 按设计就会拒绝当前手机（One UI 9 / CZJB / 6.6.127）。它的 payload 是针对 BBZG3 内核镜像编译的产物。**
+**Conclusion: by design this APK refuses the current phone (One UI 9 / CZJB / 6.6.127). Its payload
+was compiled against the BBZG3 kernel image.**
 
-## 3. 新固件 boot 镜像（本次独立重算）
+## 3. The new firmware's boot image (independently recomputed here)
 
-用自己写的纯 Python LZ4 frame 解码器（`tools/lz4frame.py`，不依赖任何安装包）重新解压：
+Unpacked again with our own pure-Python LZ4 frame decoder (`tools/lz4frame.py`, no installed packages):
 
 ```text
-压缩文件 SHA-256      a5bebd0959dd15a0597c6a1a8d5b07c71c7d0943268bf48e7ce18da9d34f6170
-解压后字节            101,122,048
-magic                 ANDROID!
-kernel size           39,115,264（header offset 8）
-ramdisk size          0
-boot.img SHA-256      3e29ee127035bb1ac94b45feeddbafcf88823e4f7ec74ca35ef34f4f61351bfb
-kernel 字节 SHA-256   a6222eb6f6cfd7e32941e5f74feae5b2f371081c14298fe1633969cf4abe2e51
-banner                Linux version 6.6.127-android15-8-p4a765df-abogkiF966USQUDCZJB-4k
-                      (Android 11368308 +pgo +bolt +lto +mlgo, clang 18.0.0, LLD 18.0.0)
-                      #1 SMP PREEMPT Mon Oct 19 08:36:50 UTC 2026
+compressed file SHA-256   a5bebd0959dd15a0597c6a1a8d5b07c71c7d0943268bf48e7ce18da9d34f6170
+decoded bytes             101,122,048
+magic                     ANDROID!
+kernel size               39,115,264  (header offset 8)
+ramdisk size              0
+boot.img SHA-256          3e29ee127035bb1ac94b45feeddbafcf88823e4f7ec74ca35ef34f4f61351bfb
+kernel bytes SHA-256      a6222eb6f6cfd7e32941e5f74feae5b2f371081c14298fe1633969cf4abe2e51
+banner                    Linux version 6.6.127-android15-8-p4a765df-abogkiF966USQUDCZJB-4k
+                          (Android 11368308 +pgo +bolt +lto +mlgo, clang 18.0.0, LLD 18.0.0)
+                          #1 SMP PREEMPT Mon Oct 19 08:36:50 UTC 2026
 ```
 
-四项数值（解压长度、boot 哈希、kernel 哈希、banner）与档案第 9 章全部逐位一致。
-2026-11-11 23:45 UTC 重跑：`python -u tools/lz4frame.py "firmware/boot.img.lz4"` 输出同上四项。
-kernel 位置另两处交叉确认：`4096+0x38` 处是 arm64 Image 魔数 `ARMd`；`SEANDROIDENFORCE` 尾部在偏移 `39,120,896`。
-本镜像头字段不套 AOSP 文档的 `header_version` 位置（详见 `DECISIONS.md` §A1）。
-仍然只证明"镜像身份"，不证明官方签名有效、不证明存在可用 payload。
+All four values (decoded length, boot hash, kernel hash, banner) match chapter 9 of the original notes
+bit for bit. Re-run on 2026-11-11 23:45 UTC: `python -u tools/lz4frame.py "firmware/boot.img.lz4"`
+prints the same four values.
 
-## 4. 工具链与源码现状（关键限制）
+Two independent cross-checks for the kernel offset: the arm64 Image magic `ARMd` sits at `4096+0x38`,
+and the `SEANDROIDENFORCE` trailer ends at offset `39,120,896`. This image does **not** follow the
+AOSP-documented `header_version` field positions (see `DECISIONS.md` §A1).
 
-| 需要 | 本机状态 |
+This still only proves image identity: not that the official signature is valid, and not that a
+working payload exists.
+
+## 4. Toolchain and source status (the hard limitation)
+
+| Needed | State on that host |
 |---|---|
-| 上游源码 `Root-My-Galaxy` v0.2.65 @1f2f062 | 不存在。全盘搜索 `root-my-galaxy` / `build.gradle.kts` / `settings.gradle` 无结果（只有历史 md 文档和本次会话记录） |
-| Android SDK（compileSdk 37、build-tools: aapt2 / apksigner / zipalign / d8） | 不存在。`ANDROID_HOME` 为空，无 `AppData\Local\Android\Sdk`，全盘找不到 aapt2/apksigner/d8.jar |
-| Gradle（历史用 9.5.1）/ AGP 9.2.1 / Kotlin / Compose 依赖 | 不存在，`~/.gradle`、`~/.m2` 均无缓存 |
-| JDK 17 | 有（`Eclipse Adoptium\jdk-17.0.20.101`） |
-| 网络 | 无（`PI_OFFLINE=1`） |
-| 签名密钥库（Lock6/6.1 用的 debug keystore） | 不存在 |
+| upstream source `Root-My-Galaxy` v0.2.65 @1f2f062 | absent. A full-disk search for `root-my-galaxy` / `build.gradle.kts` / `settings.gradle` found nothing (only the historical markdown notes and this session's records) |
+| Android SDK (compileSdk 37, build-tools: aapt2 / apksigner / zipalign / d8) | absent. `ANDROID_HOME` empty, no `AppData\Local\Android\Sdk`, no aapt2/apksigner/d8.jar anywhere |
+| Gradle (9.5.1 historically) / AGP 9.2.1 / Kotlin / Compose dependencies | absent, no cache in `~/.gradle` or `~/.m2` |
+| JDK 17 | present (`Eclipse Adoptium\jdk-17.0.20.101`) |
+| network | none (`PI_OFFLINE=1`) |
+| signing keystore (the debug keystore used for Lock6/6.1) | absent |
 
-**硬性结论：在这台机器上目前无法构建任何 APK（包括不含漏洞的只读诊断 APK）。构建前置条件必须先解决。**
+**Hard conclusion: on that host no APK could be built at all (not even a read-only diagnostic APK
+without an exploit). The build prerequisites had to be solved first.**
 
-## 5. 新旧固件差异（为什么旧 payload 不能"照搬白名单"）
+## 5. Old vs new firmware (why the old payload cannot be "allow-listed as is")
 
-| 字段 | BBZG3（APK 已锁定） | CZJB（手机现状） |
+| Field | BBZG3 (what the APK is locked to) | CZJB (what the phone runs) |
 |---|---|---|
 | kernel release | 6.6.98-...-p**d6ff1cd**-abogkiF966USQS**BBZG3**-4k | 6.6.127-...-p**4a765df**-abogkiF966USQ**UDCZJB**-4k |
-| 内核编译时间 | Thu Jul 2 01:36:45 UTC 2026 | Mon Oct 19 08:36:50 UTC 2026 |
+| kernel build time | Thu Jul 2 01:36:45 UTC 2026 | Mon Oct 19 08:36:50 UTC 2026 |
 | Build | BP4A.251205.006.F966WVLSBBZG3 | CP2A.260605.016.F966WVLUDCZJB |
-| Android / SDK | 16 / 36 | 17 / 37（截图；SDK 号未从设备命令复核） |
-| kernel 字节哈希 | 未知（无旧镜像） | `a6222eb6f6cfd7e3...` |
+| Android / SDK | 16 / 36 | 17 / 37 (from a screenshot; SDK not confirmed by a device command) |
+| kernel bytes hash | unknown (no old image) | `a6222eb6f6cfd7e3...` |
 
-内核次版本、构建标识、编译时间全变 → 与内核布局/偏移绑定的载荷不能跨构建使用。只改白名单放行 = 让按旧内核内存布局写的代码在新内核上乱写内存，这是明确的坏做法，本计划不包含。
+Kernel sublevel, build identity and build time all changed, so a payload bound to kernel layout/offsets
+cannot be carried across builds. Only changing the allow-list would mean letting code written for the
+old kernel layout write to memory under a new kernel — clearly wrong, and not part of this project.
 
 ---
 
-# 6. 第二轮新增基准（2026-11-12）
+# 6. Baseline added in round 2 (2026-11-12)
 
-本轮网络可用，按 DirtyFrag / DFRoot 路线产出了新 APK。以下是新增的可核验项。
+Network was available in that round, so a new APK was produced along the DirtyFrag / DFRoot route.
+The new verifiable values follow.
 
-## 6.1 新交付产物
+## 6.1 New artifacts
 
-| 路径 | bytes | SHA-256 |
+| Path | bytes | SHA-256 |
 |---|---:|---|
 | `src/DFRoot/app/build/outputs/apk/release/DFRoot_4.7-f966w-czjb-lock1.apk` | 86,015 | `4ade4fb7c14b83433cb6fafb06e7be90c946a139618a1d8c40b841496f6347d6` |
 | `deliverables/KernelSU_samsung-v2.2_32687-release.apk` | 7,607,475 | `761dffad54ae080a4977971db7b04e2fc65c2d9b5e2336accca4a85661290a69` |
-| 上游官方 DFRoot v4.7 APK（比对基准） | 84,071 | `9e193ffdaada8577e14a04fb19403256b3fa4991fae1331c7956e083c098a7b1` |
+| upstream official DFRoot v4.7 APK (comparison baseline) | 84,071 | `9e193ffdaada8577e14a04fb19403256b3fa4991fae1331c7956e083c098a7b1` |
 
-APK 内部（本次从产物重新计算）：
+Inside the APK (recomputed from the produced artifact):
 
-| 条目 | bytes | SHA-256 | 说明 |
+| Entry | bytes | SHA-256 | note |
 |---|---:|---|---|
-| `lib/arm64-v8a/libdfroot.so` | 123,384 | `1dc45a41991c7db2e23e21d3ecd769640dfce3a9eeb2c9fd1b2248b1578ad3db` | 与官方 v4.7 逐字节一致 |
-| `lib/arm64-v8a/libbootstrap.so` | 10,048 | `654d11c78eaaa3469dd90072d038181961dc11a0ef4d3b7bdea4aa54cabab236` | 与官方 v4.7 逐字节一致 |
-| 内嵌 `dfroot-android15-6.6.ko` | 10,432 | `6d6f747234ad33c746e2dbb503336f2e82ff82a790b653e511feb0e02d767718` | vermagic `6.6.127-4k-g46a034eca005-dirty SMP preempt mod_unload modversions aarch64` |
-| KernelSU `lkm-aarch64-android15-6.6_kernelsu.ko` | 343,952 | `07127a9f635665cd3fb48e8f32ad36ca512656ea5b3d375e74164aab73cedc7f` | 同 KMI vermagic |
+| `lib/arm64-v8a/libdfroot.so` | 123,384 | `1dc45a41991c7db2e23e21d3ecd769640dfce3a9eeb2c9fd1b2248b1578ad3db` | byte-identical to official v4.7 |
+| `lib/arm64-v8a/libbootstrap.so` | 10,048 | `654d11c78eaaa3469dd90072d038181961dc11a0ef4d3b7bdea4aa54cabab236` | byte-identical to official v4.7 |
+| embedded `dfroot-android15-6.6.ko` | 10,432 | `6d6f747234ad33c746e2dbb503336f2e82ff82a790b653e511feb0e02d767718` | vermagic `6.6.127-4k-g46a034eca005-dirty SMP preempt mod_unload modversions aarch64` |
+| KernelSU `lkm-aarch64-android15-6.6_kernelsu.ko` | 343,952 | `07127a9f635665cd3fb48e8f32ad36ca512656ea5b3d375e74164aab73cedc7f` | same-KMI vermagic |
 
-APK 元数据：package `df.root`、versionCode 4700、versionName `4.7-f966w-czjb-lock1`、
-minSdk 32、targetSdk 37、label `DFRoot F966W`、`extractNativeLibs=true`、v2 签名
-（CN=Android Debug，证书 SHA-256 `01aa025b…a5c2`）。
+APK metadata: package `df.root`, versionCode 4700, versionName `4.7-f966w-czjb-lock1`,
+minSdk 32, targetSdk 37, label `DFRoot F966W`, `extractNativeLibs=true`, v2 signature
+(CN=Android Debug, certificate SHA-256 `01aa025b…a5c2`).
 
-## 6.2 本机工具链（全部位于项目 `toolchain/`）
+## 6.2 Toolchain on that host (all inside the project's `toolchain/`)
 
-| 组件 | 版本 / 来源 |
+| Component | Version / source |
 |---|---|
 | JDK | Temurin 21.0.13+9 |
-| Android cmdline-tools | 16111833（sdkmanager 显示 23.0.0） |
-| SDK platform | `android-37.0`（repo 包名 `platforms/android-37.0`） |
-| build-tools | 37.0.0（aapt2 / apksigner / zipalign / d8） |
-| platform-tools | 37.0.1（adb） |
-| Gradle | 9.7.1（wrapper，`GRADLE_USER_HOME` 指向项目内） |
+| Android cmdline-tools | 16111833 (sdkmanager reports 23.0.0) |
+| SDK platform | `android-37.0` (repo package `platforms/android-37.0`) |
+| build-tools | 37.0.0 (aapt2 / apksigner / zipalign / d8) |
+| platform-tools | 37.0.1 (adb) |
+| Gradle | 9.7.1 (wrapper, `GRADLE_USER_HOME` pointing inside the project) |
 | AGP | 9.4.0 |
-| 源码 | `diabl0w/DFRoot` master `7a6513a69ce4c1a90b68d857c26347bf166ffe10`（= v4.7 + #185） |
+| source | `diabl0w/DFRoot` master `7a6513a69ce4c1a90b68d857c26347bf166ffe10` (= v4.7 + #185) |
 
-## 6.3 本轮复核过的上游事实
+## 6.3 Upstream facts re-checked in that round
 
-- `targets-v3.json` 12,242 B，20 个 payload，无 `CZJB`/`6.6.127`/`SM-F966W`（与上一轮判定一致）。
-- DFRoot 设备选择逻辑：`uname -r` → (android, major, minor) = (15, 6, 6) → `dfroot-android15-6.6.ko`。
-- `dfroot.ko` 只 import 6 个 GKI 符号，`__versions` 为空；上游实机日志（issue #60）显示该 ko
-  可在 Samsung 6.6.x 上完成加载（随后失败发生在 ksud 阶段）。
-- `apksigner verify`、`zipalign -c 4`、`aapt2 dump` 均通过；`PT_LOAD` 全部 `0x4000`。
+- `targets-v3.json`, 12,242 B, 20 payloads, no `CZJB` / `6.6.127` / `SM-F966W` (same verdict as the
+  previous round).
+- DFRoot's device selection: `uname -r` → (android, major, minor) = (15, 6, 6) → `dfroot-android15-6.6.ko`.
+- `dfroot.ko` imports only 6 GKI symbols and its `__versions` is empty. An upstream on-device log
+  (issue #60) shows that this ko does load on Samsung 6.6.x; the later failure happens at the ksud stage.
+- `apksigner verify`, `zipalign -c 4` and `aapt2 dump` all pass; every `PT_LOAD` is `0x4000`-aligned.
 
-## 6.4 仍未证明的事
+## 6.4 Still unproven
 
-- 没有真机连接（`adb devices` 为空），所以**没有实测 Root 成功**。
-- CZJB 是否已 backport DirtyFrag 修复、One UI 9 的 DEFEX/KDP 行为，均未知。
-- 本文件的“已验证”仅指构建产物与静态一致性，不等于漏洞利用成功。
+- No device was attached (`adb devices` was empty), so **root success was never measured there**.
+- Whether CZJB backports the DirtyFrag fix, and how DEFEX/KDP behave on One UI 9, are both unknown.
+- "Verified" in this file means the artifact and its static consistency only — it does not mean the
+  exploit succeeded.

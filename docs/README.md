@@ -1,44 +1,41 @@
-# 文档索引与"缺失内容"说明 / Docs index and what is intentionally missing
+# Docs index, and what is intentionally missing
 
-这个目录是原项目工作笔记的公开版本。内容按"换个固件照着做"来组织，不是教程式的科普。
+> English edition (primary). Chinese original: [`README.zh-CN.md`](README.zh-CN.md).
 
-This directory is the public version of the original working notes. It is organised as
-"follow these steps for a different firmware", not as a tutorial.
+This directory is the public version of the original working notes. It is organised as "follow these
+steps for a different firmware", not as a tutorial.
 
-| 文件 / file | 读它的目的 / why read it |
+Every long document exists twice: `NAME.md` is the **English** edition, `NAME.zh-CN.md` is the Chinese
+record of what was actually measured. Section numbers, hashes, byte counts and commands are identical;
+where the two disagree, **the Chinese file wins**.
+
+| file | why read it |
 |---|---|
-| `BUILD_RECORD.md` · [`BUILD_RECORD.en.md`](BUILD_RECORD.en.md) | 制造记录：工具链版本、9 个补丁逐个说明、payload 校验、7 项验证命令与期望哈希、换固件要改的常量 |
-| `REBOOT_TRIAGE.md` · [`REBOOT_TRIAGE.en.md`](REBOOT_TRIAGE.en.md) | 分诊：`/dev/df*` 标记含义、怎么取并读三星崩溃归档、判定表 |
-| `KP_CASE_STUDY.md` | 一次真实内核 panic 的完整定案过程（同一文件内中英对照，可当教材） |
-| `DECISIONS.md` · [`DECISIONS.en.md`](DECISIONS.en.md) | 假设与决策日志：每条结论的证据等级、**被推翻的假设**、原环境受限项 |
-| `BASELINE.md` · [`BASELINE.en.md`](BASELINE.en.md) | 所有输入/输出的 SHA-256 基线，以及纯 Python 的 LZ4 解帧方法 |
-| `DELIVERY.md` · [`DELIVERY.en.md`](DELIVERY.en.md) | 构建产物怎么装、怎么验证、怎么判失败、有哪些已知风险 |
+| [`BUILD_RECORD.md`](BUILD_RECORD.md) · [中文](BUILD_RECORD.zh-CN.md) | the manufacturing record: toolchain versions, the nine patch files one by one, payload verification, seven verification commands with expected hashes, the six constants to change on a firmware change |
+| [`REBOOT_TRIAGE.md`](REBOOT_TRIAGE.md) · [中文](REBOOT_TRIAGE.zh-CN.md) | triage: what the `/dev/df*` markers mean, how to pull and read Samsung's crash archives, the decision table |
+| [`KP_CASE_STUDY.md`](KP_CASE_STUDY.md) · [中文](KP_CASE_STUDY.zh-CN.md) | one real kernel panic taken from symptom to closed diagnosis — the best "do not guess" teaching material here |
+| [`DECISIONS.md`](DECISIONS.md) · [中文](DECISIONS.zh-CN.md) | assumption and decision log: the evidence grade of every conclusion, **the hypotheses that were disproved**, the limits of the original environment |
+| [`BASELINE.md`](BASELINE.md) · [中文](BASELINE.zh-CN.md) | SHA-256 baselines for every input and output, plus the pure-Python LZ4 frame decoder |
+| [`DELIVERY.md`](DELIVERY.md) · [中文](DELIVERY.zh-CN.md) | how to install the built APK, how to verify it, how to read a failure, which risks are known |
 
-**语言 / language**：`NAME.md` 是中文正本，`NAME.en.md` 是逐节英文全文（同编号、同哈希、同命令）；
-冲突时以中文为准。`KP_CASE_STUDY.md` 两种语言在同一个文件里。
-`NAME.md` is the Chinese record; `NAME.en.md` is a section-by-section English translation with the
-same numbering, hashes and commands. The Chinese file wins on any conflict.
+## Paths the documents mention but that are **not** in this repo
 
-## 文中提到但**不在**本仓库的路径 / paths referenced but not shipped
+Some things from the original working directory were not published, for privacy, size or licensing
+reasons:
 
-原工作目录里还有一些东西，出于隐私、体积与许可原因没有发布。对照表：
-
-| 文中路径 / path in docs | 是什么 / what it was | 公开仓库里的替代 / instead, do this |
+| path in the docs | what it was | do this instead |
 |---|---|---|
-| `firmware/boot.img.lz4`、`firmware/AP_*.jpg` | 自己的固件与其文件清单截图 | 放自己的固件到 `firmware/`（已在 `.gitignore`） |
-| `evidence/…` | 真机取证输出（含设备标识与已安装应用列表） | 用 `tools/evidence.sh` / `evidence.bat` 在自己设备上重跑；分析方法见 `KP_CASE_STUDY.md` |
-| `deliverables/managers/*.apk`、`*.ko` | 第三方 KernelSU 管理器与其内核模块 | 从上游发布页下载，见 `NOTICE.md` §2 |
-| `toolchain/`、`src/` | 本机工具链与上游源码树 | `bash setup_toolchain.sh` 重建 |
-| `TODO.md` | 原项目的内部任务清单 | 未发布；待办思路散见各文档的"已知坑"与"受限项" |
-| `tmp_bootcheck.py` | 早期会段错误的试验脚本 | 已删除；`tools/lz4frame.py` 提供同样能力 |
-| 对话归档 `.md` | 私人对话记录 | 未发布，也不会发布 |
+| `firmware/boot.img.lz4`, `firmware/AP_*.jpg` | the firmware and a screenshot of its file list | put your own firmware in `firmware/` (gitignored) |
+| `evidence/…` | on-device evidence dumps (containing device identifiers and the installed-app list) | re-run `tools/evidence.sh` / `evidence.bat` on your own device; the analysis method is in `KP_CASE_STUDY.md` |
+| `deliverables/managers/*.apk`, `*.ko` | third-party KernelSU managers and their kernel modules | download from upstream releases, see `NOTICE.md` §2 |
+| `toolchain/`, `src/` | the toolchain and the upstream source tree | rebuild with `bash setup_toolchain.sh` |
+| `TODO.md` | the original project's internal task list | not published; the open threads live in each document's "known pitfalls" and "limitations" |
+| `tmp_bootcheck.py` | an early experiment that segfaults | deleted; `tools/lz4frame.py` does the same job |
+| the conversation archive `.md` | a private chat log | not published, and will not be |
 
-## 一个提醒 / one reminder
+## One reminder
 
-`docs/DECISIONS.md` 里保留了几条**后来被推翻的结论**（例如"内核里搜不到某符号就说明没有"）。
-它们被故意留下，因为它们记录了"哪种验证方法为什么不可靠"。读到"已撤回 / retracted"时，
-请连着后面那条更正一起看。
-
-`docs/DECISIONS.md` deliberately keeps several conclusions that were later disproved. They are kept
-because they document *why* a particular verification method is unreliable. When you see
-"retracted", read the correction that follows it.
+`DECISIONS.md` deliberately keeps several conclusions that were **later disproved** (for example "if a
+symbol name is not found in the kernel image, the symbol does not exist"). They are kept because they
+record *why* a particular verification method is unreliable. When you see "retracted", read the
+correction that follows it.
