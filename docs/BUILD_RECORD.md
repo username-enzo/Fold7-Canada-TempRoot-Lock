@@ -25,8 +25,9 @@ signature     v2, CN=Android Debug, certificate SHA-256 01aa025b44986b95837b4ccb
 ```
 
 `src/` is not in git, so **every source change is recorded in `patches/dfroot-f966w.patch`
-(654 lines / 9 files)**. "git + patch + in-project toolchain" alone rebuilds this APK byte for byte;
-that has been measured (see §7.6).
+(654 lines / 9 files)**. "git + patch + in-project toolchain" alone rebuilds this APK with identical
+content — but **not an identical file hash**, because signing is randomised; §7.6 explains how to
+compare instead.
 
 ---
 
@@ -199,12 +200,15 @@ git -C src/DFRoot apply -R -         < patches/dfroot-f966w.patch   # revert to 
 ## 6. Native payloads (no rebuild, but verify them)
 
 ```bash
-python tools/extract_native_payloads.py
+python tools/extract_native_payloads.py --dest src/DFRoot
 ```
 
 It pulls the two `.so` files out of the official v4.7 APK and, for hash auditing, cuts out the **8 ko
-files `.incbin`'d into `libdfroot.so`'s `.rodata`** (written to `src/DFRoot/build_logs/embedded-ko/`,
-because the script's cwd is the source root). Expected values:
+files `.incbin`'d into `libdfroot.so`'s `.rodata`** (written under `src/DFRoot/build_logs/embedded-ko/`).
+
+`--dest` is not optional in practice: without it the files are written relative to your shell's cwd, and
+`build.sh` will then link an APK that has no `lib/` directory at all — it installs and cannot run
+the exploit. `build.sh` passes `--dest` for you. Expected values:
 
 ```text
 libdfroot.so      1dc45a41991c7db2e23e21d3ecd769640dfce3a9eeb2c9fd1b2248b1578ad3db
@@ -299,17 +303,36 @@ $BT/zipalign.exe -c -v 4 src/DFRoot/app/build/outputs/apk/release/DFRoot_4.7-f96
 Expected signature `CN=Android Debug`, certificate SHA-256 `01aa025b…`; zipalign passes when it prints
 no error. (On Windows `apksigner` only exists as a `.bat`, not an `.exe`.)
 
-### 7.6 Bit-level reproducibility (rebuild once and compare hashes)
+### 7.6 Reproducibility: content yes, file hash no
 
 ```bash
 git -C src/DFRoot apply -R - < patches/dfroot-f966w.patch      # back to pristine upstream
-bash build.sh                                                  # re-applies the patch automatically
-sha256sum src/DFRoot/app/build/outputs/apk/release/DFRoot_*.apk
+bash build.sh                                                  # re-applies the patch, verifies the APK
+python tools/verify_apk.py src/DFRoot/app/build/outputs/apk/release/DFRoot_*.apk
 ```
 
-Expected: still `2a2b59f7…`. Measured here and passing. **This step is the entire basis for trusting
-this record**: if a rebuild ever yields a different hash, the toolchain or upstream drifted — do not
-flash it.
+**The APK file's own SHA-256 is not reproducible, and this is expected.** Every zip entry is
+byte-identical between builds, but the APK Signing Block carries a randomised signature, so signing the
+same content twice produces a different file. Measured on four independent builds of identical content:
+
+```text
+2a2b59f76640de5f…   4824a51afda989cc…   7d493b7b08a65659…   0093700a10276f83…
+                  ^ four different files, identical content
+```
+
+What *is* stable is the content: the set of zip entries with their sizes and CRC-32s. `verify_apk.py`
+folds that into one value:
+
+```text
+content digest   0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+```
+
+That digest is what "did I build the same thing?" should mean. The tool also asserts that both native
+payloads are present and byte-identical to official v4.7, and that the patch markers are really in
+`classes.dex` — so it catches a *silently broken* build (for example an APK built without `lib/`) that
+a hash comparison would only report as "different".
+
+If the content digest ever differs, then the toolchain or upstream drifted — do not flash it.
 
 ---
 
@@ -498,6 +521,8 @@ ffa78d1  chore: .gitattributes so patches/build.sh keep LF
 | `dmesg` / `logcat` are empty after a crash | they live in RAM and are lost on a kernel panic | look at dropbox (`SYSTEM_LAST_KMSG` / `SYSTEM_RESTART`); `tools/evidence.bat` is ordered accordingly |
 | `src/` is not in git | you spend an hour editing, then a clone loses it | put every change into `patches/`, see §9.2 |
 | compiling the native code from `src/` yourself | the artifact hash no longer matches and the behaviour is unverifiable | do not. Use the official v4.7 binaries only |
+| running `extract_native_payloads.py` from the wrong directory | it writes `app/src/main/jniLibs` relative to the cwd; the build then links an APK with **no `lib/`** (65 KB instead of 95 KB) that installs and cannot work | pass `--dest <source root>`; `build.sh` does. `verify_apk.py` fails such an APK loudly |
+| comparing only the APK's SHA-256 between rebuilds | two identical builds report different hashes and it looks like a broken pipeline | compare the **content digest** (`tools/verify_apk.py`) and the payload hashes, not the file hash (see §7.6) |
 
 ---
 

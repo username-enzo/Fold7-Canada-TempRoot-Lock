@@ -60,7 +60,7 @@
 | 一个**固件锁**：APK 会逐项比对型号、构建号、SDK、fingerprint、内核版本，任一不符就拒绝运行 | 安全边界：它防手滑，不防刻意改常量 |
 | 一套**筛查工具**，判断某份 `boot.img` 是否落在这条路线的适用范围内 | 漏洞一定可利用的证明 —— 离线做不到 |
 | 一份**失败案例研究**，包含那次"显示成功却重启"的完整内核 panic 定位 | 你不会踩同一个坑的保证 |
-| 一个**可复现构建**：给定工具链与上游源码，产出逐字节相同的 APK（见 [`docs/BUILD_RECORD.zh-CN.md`](docs/BUILD_RECORD.zh-CN.md) §7） | 预编译 APK（见 §9）—— 需要就自己构建 |
+| 一个**内容可复现构建**：给定工具链与上游源码，所有 zip 条目逐字节相同；`tools/verify_apk.py` 负责核对 content digest 与 payload 哈希（见 [`docs/BUILD_RECORD.zh-CN.md`](docs/BUILD_RECORD.zh-CN.md) §7.6）。APK 的**文件**哈希每次构建都不同，因为签名带随机量 | 预编译 APK（见 §9）—— 需要就自己构建 |
 
 不提供：固件、manager APK、内核模块二进制；也不提供"通用一键 root"（这条路线按 KMI 匹配、按固件
 加锁，本身就不是通用的）；更没有内核侧的绕过研究 —— 内核模块由上游提供，本项目不修改它。
@@ -237,6 +237,7 @@ tools/
   lz4frame.py                 纯 Python LZ4 frame 解码（无依赖）
   kp_inspect.py               读三星 dumpstate_lastkmsg 的 ZIP 归档
   extract_native_payloads.py  从上游 APK 提取官方 payload（带哈希校验）
+  verify_apk.py               自检构建产物：payload、补丁标记、content digest
   evidence.sh / evidence.bat  崩溃后一次性抓取证（走 adb）
 build.sh                      构建 APK（可先用 --lock 应用报告）
 setup_toolchain.sh            一次性环境（JDK + SDK + 上游 clone）

@@ -38,7 +38,8 @@ minSdk 32 / targetSdk 37 / 只有 arm64-v8a
 ```
 
 `src/` 不入 git，所以**源码改动全部记录在 `patches/dfroot-f966w.patch`（654 行 / 9 个文件）**。
-只靠"git + 补丁 + 项目内工具链"就能逐字节重建这个 APK，已实测验证（见 §7.6）。
+只靠"git + 补丁 + 项目内工具链"就能重建出**内容完全一致**的 APK —— 但**文件哈希不同**，
+因为签名带随机量。怎么比对见 §7.6。
 
 ---
 
@@ -206,11 +207,14 @@ git -C src/DFRoot apply -R -         < patches/dfroot-f966w.patch   # 回退到�
 ## 6. 原生 payload（不重编译，但要核对）
 
 ```bash
-python tools/extract_native_payloads.py
+python tools/extract_native_payloads.py --dest src/DFRoot
 ```
 
 它从官方 v4.7 APK 里取两个 `.so`，并把 `libdfroot.so` 的 `.rodata` 里 **`.incbin` 进去的 8 个 ko**
-切出来做哈希审计（写到 `src/DFRoot/build_logs/embedded-ko/`，只因脚本的 cwd 是源码根）。期望值：
+切出来做哈希审计（写到 `src/DFRoot/build_logs/embedded-ko/`）。
+
+`--dest` 实际上不能省：不给的话文件会按**当前 shell 的 cwd** 落盘，`build.sh` 随后会编出一个
+**连 `lib/` 目录都没有**的 APK —— 能装上、但跑不了 exploit。`build.sh` 会自动传 `--dest`。期望值：
 
 ```text
 libdfroot.so      1dc45a41991c7db2e23e21d3ecd769640dfce3a9eeb2c9fd1b2248b1578ad3db
@@ -303,16 +307,34 @@ $BT/zipalign.exe -c -v 4 src/DFRoot/app/build/outputs/apk/release/DFRoot_4.7-f96
 期望签名 `CN=Android Debug`，证书 SHA-256 `01aa025b…`；zipalign 无输出错误即通过。
 （`apksigner` 在 Windows 上只有 `.bat`，没有 `.exe`。）
 
-### 7.6 位级可复现（重建一次，比哈希）
+### 7.6 复现性：内容可复现，文件哈希不可复现
 
 ```bash
 git -C src/DFRoot apply -R - < patches/dfroot-f966w.patch      # 回到上游原状
-bash build.sh                                                   # 自动重新应用补丁
-sha256sum src/DFRoot/app/build/outputs/apk/release/DFRoot_*.apk
+bash build.sh                                                   # 自动重新应用补丁并自检
+python tools/verify_apk.py src/DFRoot/app/build/outputs/apk/release/DFRoot_*.apk
 ```
 
-期望仍是 `2a2b59f7…`。本机已实测通过。**这一步是这份记录可信的全部依据**：
-如果哪天重建出来的哈希变了，说明工具链或上游漂移了，别急着装机。
+**APK 文件本身的 SHA-256 不可复现，这是预期行为。** 每次重建的 zip 条目逐字节相同，但
+APK Signing Block 里带随机化的签名，所以同一份内容签两次得到两个不同文件。同一份内容四次独立
+构建的实测值：
+
+```text
+2a2b59f76640de5f…   4824a51afda989cc…   7d493b7b08a65659…   0093700a10276f83…
+                  ^ 四个不同的文件，内容完全相同
+```
+
+真正稳定的是**内容**：所有 zip 条目的名字、大小、CRC-32。`verify_apk.py` 把这些折成一个值：
+
+```text
+content digest   0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+```
+
+这个 digest 才是"我造的是不是同一个东西"该比的东西。工具同时断言两个原生 payload 都在、且与官方
+v4.7 逐字节一致，以及补丁标记确实进了 `classes.dex` —— 所以它还能抓出**静默坏掉**的构建
+（例如编出没有 `lib/` 的 APK），而单纯比哈希只会告诉你"不一样"，不告诉你哪里坏。
+
+如果 content digest 变了，那才是工具链或上游漂移了，别装机。
 
 ---
 
@@ -494,6 +516,8 @@ ffa78d1  chore: .gitattributes so patches/build.sh keep LF
 | 崩了以后 `dmesg` / `logcat` 是空的 | 它们在内存里，kernel panic 后全丢 | 看 dropbox（`SYSTEM_LAST_KMSG` / `SYSTEM_RESTART`），`tools/evidence.bat` 已按此排序 |
 | `src/` 不在 git 里 | 改半天，一 clone 就没了 | 改动一律落进 `patches/`，见 §9.2 |
 | 用 `src/` 的 native 代码自己编 | 产物哈希对不上，且行为不可验证 | 不要编。payload 只用官方 v4.7 的二进制 |
+| 在错误的目录下跑 `extract_native_payloads.py` | 它按 cwd 写 `app/src/main/jniLibs`；随后编出的 APK **没有 `lib/`**（65 KB 而不是 95 KB），能装不能跑 | 传 `--dest <源码根>`；`build.sh` 已代传。`verify_apk.py` 会让这种 APK 直接失败 |
+| 只用 APK 的 SHA-256 比较两次重建 | 两份一模一样的构建报出不同哈希，看起来像流水线坏了 | 比 **content digest**（`tools/verify_apk.py`）与 payload 哈希，不比文件哈希（见 §7.6） |
 
 ---
 

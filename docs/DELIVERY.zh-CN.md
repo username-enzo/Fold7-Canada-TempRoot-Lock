@@ -204,6 +204,10 @@ DFRoot 菜单 → `Run log`（重启后仍能看到上一 boot 走到哪一格�
 
 ## 8. 关键哈希（供复核）
 
+注意：APK 自身的 SHA-256 在内容相同时也随构建而变（签名随机化）。要比的是 **content digest**
+`0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916`
+（`python tools/verify_apk.py`，见 `docs/BUILD_RECORD.zh-CN.md` §7.6）与下面的 payload 哈希。
+
 ```
 lock2 APK（本轮）      2a2b59f76640de5fbf144da99214506da80bbe0201ac175f75fe59260e2047a7
 lock1 APK（第一轮）    42368624c762785385f126501014205e94cd377b5392dc9792f72046a66f9af3
@@ -250,7 +254,15 @@ patches/dfroot-f966w.patch   654 行 / 9 个文件，基于上游 diabl0w/DFRoot
 `build.sh` 会在 `src/DFRoot/app/src/main/java/df/root/DeviceLock.java` 不存在时自动
 `git apply` 这个补丁，并警告上游基线不是 `7a6513a`。
 
-**已验证到位级可复现**（本轮实测）：先 `git apply -R` 把 `src/DFRoot` 回到上游原状，
-再跑 `bash build.sh`（自动重新应用补丁），产出的 APK sha256 仍是
-`2a2b59f76640de5f…`，与上面交付的 lock2 **逐字节相同**。
-重建前会先 `git -C src/DFRoot apply -R --check -` 确认能干净回退。
+**复现性是"内容级"的，不是"位级"的**：先 `git apply -R` 把 `src/DFRoot` 回到上游原状，再跑
+`bash build.sh`（自动重新应用补丁），产出的 APK 里所有 zip 条目与上面交付的 lock2 **逐字节相同**，
+但**文件哈希会不同** —— 因为签名块里带随机化的签名。四次构建实测：`2a2b59f7…`、`4824a51a…`、
+`7d493b7b…`、`0093700a…`，content digest 全部是同一个值：
+
+```text
+content digest   0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+```
+
+用 `python tools/verify_apk.py <apk> --expect-digest 0418c102…` 核对，它同时证明两个原生 payload
+都在、且与官方 v4.7 逐字节一致。重建前会先 `git -C src/DFRoot apply -R --check -` 确认能干净回退。
+细节见 `docs/BUILD_RECORD.zh-CN.md` §7.6。

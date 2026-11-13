@@ -73,9 +73,11 @@ fi
 
 # Native payloads, byte-identical to the official DFRoot v4.7 release
 # (downloaded from upstream, never recompiled here).
+# --dest is required: a relative default would write into the caller's cwd and the APK
+# would end up with no lib/ directory at all (docs/BUILD_RECORD.md §11).
 if [ ! -f "$SRC/app/src/main/jniLibs/arm64-v8a/libdfroot.so" ]; then
     [ -n "$PY" ] || die "python is required to extract the payloads"
-    "$PY" "$ROOT/tools/extract_native_payloads.py"
+    "$PY" "$ROOT/tools/extract_native_payloads.py" --dest "$SRC"
 fi
 
 if [ -n "$LOCK" ]; then
@@ -102,3 +104,9 @@ APK="$(ls -1 app/build/outputs/apk/release/DFRoot_*.apk | head -n 1)"
 echo
 echo "APK: $APK"
 sha256sum "$APK" 2>/dev/null || shasum -a 256 "$APK"
+
+# A build can succeed and still be useless: without the native payloads the APK installs
+# but cannot run the exploit. verify_apk.py fails loudly instead of handing over a dud,
+# and also prints the content digest (the stable fingerprint - the file hash is not).
+[ -n "$PY" ] || die "python is required for the post-build check"
+"$PY" "$ROOT/tools/verify_apk.py" "$APK"

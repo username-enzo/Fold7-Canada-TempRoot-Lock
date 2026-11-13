@@ -382,7 +382,7 @@ to see what was deliberately taken out.
 | W7 | keep **retracted conclusions** and failed attempts, no beautification | this is the most valuable part: it records which verification methods are unreliable (§P9/P11, §Q10) |
 | W8 | add `tools/analyze_firmware.py` / `apply_lock.py` / `setup_toolchain.sh` | so "clone → drop your firmware → get a report → get an APK" is actually true, not just prose steps |
 | W9 | add `docs/KP_CASE_STUDY.md` | that panic is the best "why you cannot guess" teaching material and deserves its own file |
-| W10 | run a **bit-level self-test** before publishing: rebuild with the public pipeline; the APK sha256 must still be `2a2b59f7…` | proves "the pipeline given to others" and "the pipeline that was verified" are the same one; if not, do not publish |
+| W10 | run a **content-level self-test** before publishing: rebuild with the public pipeline and compare the content digest (and the payload hashes), not the APK file hash | proves "the pipeline given to others" and "the pipeline that was verified" are the same one. A file-hash test would have been inconclusive: signing is randomised (see W11) |
 
 ## X. Self-test record for the public pipeline
 
@@ -393,8 +393,61 @@ python tools/analyze_firmware.py --boot firmware/boot.img.lz4 --props firmware/g
 
 python tools/apply_lock.py --report analysis/…json  -> no-op (constants already identical)
 bash build.sh --lock analysis/…json
-  -> APK sha256 2a2b59f76640de5fbf144da99214506da80bbe0201ac175f75fe59260e2047a7
-     = the verified lock2 artifact, byte for byte
+  -> content digest 0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+     = identical to the verified lock2 content
+  -> APK file sha256 2a2b59f7… on that machine, but that value is NOT reproducible (see W11)
+```
+
+## W11. The APK file hash is not reproducible, and the docs had to say so
+
+Publishing exposed a claim that turned out to be wrong. §7.6 of `BUILD_RECORD.md` used to promise
+"rebuild and the APK sha256 is still `2a2b59f7…`". That was measured inside a single build directory,
+where Gradle reported every task up-to-date and simply re-printed the previously signed APK. A
+stranger following the published instructions would never have seen that hash.
+
+Re-measured properly, by building four times from four pristine clones of upstream:
+
+```text
+2a2b59f76640de5f…   4824a51afda989cc…   7d493b7b08a65659…   0093700a10276f83…
+```
+
+All four have 29 zip entries with identical names, sizes and CRC-32s — the content is the same; only the
+APK Signing Block differs (a 336-byte region). Signing is randomised, so the file hash cannot be a
+reproducibility criterion. Consequences, all applied:
+
+| # | change | where |
+|---|---|---|
+| W11a | the "byte-identical rebuild" claim is replaced by content-level reproducibility, with all four measured hashes printed as evidence | `BUILD_RECORD.md` §7.6, `DELIVERY.md` §8 §10 |
+| W11b | a single stable fingerprint was defined: SHA-256 over `(name, crc32, size)` of every entry, measured `0418c102…` across all four builds | `BUILD_RECORD.md` §7.6, `verify_apk.py` |
+| W11c | `tools/verify_apk.py` was added so the check is one command and also proves the payloads and patch markers | tools |
+| W11d | `build.sh` now runs that verification after every build and **fails** the build if the APK has no native payloads | `build.sh` |
+
+## W12. A real bug found by building from the published tarball
+
+The same re-measurement found a defect that only appears on a *pristine* source tree:
+`build.sh` called `extract_native_payloads.py` without telling it where the source tree was, and the
+script writes `app/src/main/jniLibs/...` relative to the cwd. On a fresh clone that meant the payloads
+landed outside the tree, Gradle linked an APK with **no `lib/` at all** (65,056 bytes instead of
+94,911), and the build still reported success. It installs and cannot run the exploit.
+
+Earlier rounds never saw it because `src/DFRoot` already contained the payloads, so the extraction step
+was skipped. Fixed by:
+
+| # | change |
+|---|---|
+| W12a | `extract_native_payloads.py` takes `--dest <source root>` and resolves every output path under it, independent of cwd |
+| W12b | `build.sh` passes `--dest "$SRC"` |
+| W12c | `build.sh` runs `verify_apk.py` afterwards, so a payload-less APK now fails loudly instead of shipping |
+| W12d | the pitfall is written into `BUILD_RECORD.md` §11 with the exact size difference (65 KB vs 95 KB) as the tell |
+
+Verification after both fixes, from a pristine clone, plain `bash build.sh` with no flags:
+
+```text
+[*] applying patches/dfroot-f966w.patch
+destination root: …/dfroot_fresh4
+BUILD SUCCESSFUL
+content digest : 0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+VERDICT: PASS
 ```
 
 `analyze_firmware.py` also corrected an implementation bug along the way: the first version read

@@ -67,7 +67,7 @@
 | A **firmware lock**: the APK compares model, build id, SDK, fingerprint and kernel release against the five values it was built for, and refuses to run on a mismatch. | A security boundary. It stops accidents, not determination. |
 | A **screening tool** that tells you whether a given `boot.img` falls inside this route's applicability. | A proof that an exploit will work — no offline check can do that. |
 | A **failure case study** with the full kernel panic analysis of a "says SUCCESS, then reboots" event. | A guarantee that it will not happen to you. |
-| A **reproducible build**: given the toolchain and upstream sources it produces a byte-identical APK (see [`docs/BUILD_RECORD.md`](docs/BUILD_RECORD.md) §7). | A prebuilt APK (see §9) — build it yourself. |
+| A **content-reproducible build**: given the toolchain and upstream sources, every zip entry comes out identical; `tools/verify_apk.py` checks the content digest and the payload hashes (see [`docs/BUILD_RECORD.md`](docs/BUILD_RECORD.md) §7.6). The APK's *file* hash still differs per build, because signing is randomised. | A prebuilt APK (see §9) — build it yourself. |
 
 Not provided: no firmware, no SU-manager APK, no kernel-module binaries, no "one-click root for any
 Fold7" (the route is KMI-matched and firmware-locked by design), and no kernel-side bypass research —
@@ -250,6 +250,7 @@ tools/
   lz4frame.py                 pure-python LZ4 frame decoder (no deps)
   kp_inspect.py               read Samsung dumpstate_lastkmsg ZIP archives
   extract_native_payloads.py  pull the official DFRoot payloads out of the upstream APK
+  verify_apk.py               check a built APK: payloads, patch markers, content digest
   evidence.sh / evidence.bat  collect post-crash evidence over adb
 build.sh                      build the APK (optionally apply a lock report first)
 setup_toolchain.sh            one-time environment setup (JDK + SDK + upstream clone)

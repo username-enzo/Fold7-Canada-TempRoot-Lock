@@ -69,13 +69,22 @@ def find_kos(blob: bytes):
     return out
 
 
-def main() -> int:
-    dest_lib = "app/src/main/jniLibs/arm64-v8a"
-    dest_ko = "build_logs/embedded-ko"
+def main(argv=None) -> int:
+    # Everything is written *under* --dest (the DFRoot source root), never relative to
+    # the caller's cwd. Getting this wrong produces an APK with no lib/ directory at
+    # all, which installs and then cannot run the exploit - see docs/BUILD_RECORD.md §11.
+    argv = sys.argv[1:] if argv is None else argv
+    dest_root = "."
+    if "--dest" in argv:
+        dest_root = argv[argv.index("--dest") + 1]
+    dest_root = os.path.abspath(dest_root)
+    dest_lib = os.path.join(dest_root, "app/src/main/jniLibs/arm64-v8a")
+    dest_ko = os.path.join(dest_root, "build_logs/embedded-ko")
     os.makedirs(dest_lib, exist_ok=True)
     os.makedirs(dest_ko, exist_ok=True)
+    print("destination root:", dest_root)
 
-    apk = "build_logs/DFRoot_4.7.apk"
+    apk = os.path.join(dest_root, "build_logs/DFRoot_4.7.apk")
     if not os.path.exists(apk):
         print("downloading", APK_URL)
         urllib.request.urlretrieve(APK_URL, apk)

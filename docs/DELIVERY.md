@@ -211,6 +211,10 @@ logcat / `/dev/df*` into `evidence/<timestamp>/` in one shot. lock2 also self-do
 
 ## 8. Key hashes (for verification)
 
+Note: the APK's own SHA-256 varies between builds even with identical content (randomised signing).
+Compare the **content digest** `0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916`
+(`python tools/verify_apk.py`, see `docs/BUILD_RECORD.md` §7.6) and the payload hashes below.
+
 ```
 lock2 APK (this round)   2a2b59f76640de5fbf144da99214506da80bbe0201ac175f75fe59260e2047a7
 lock1 APK (round 1)      42368624c762785385f126501014205e94cd377b5392dc9792f72046a66f9af3
@@ -261,7 +265,17 @@ patches/dfroot-f966w.patch   654 lines / 9 files, against upstream diabl0w/DFRoo
 `src/DFRoot/app/src/main/java/df/root/DeviceLock.java` is missing, and warns when the upstream baseline
 is not `7a6513a`.
 
-**Bit-level reproducibility was measured** in that round: first `git apply -R` to return `src/DFRoot`
-to pristine upstream, then run `bash build.sh` (which re-applies the patch). The produced APK sha256 is
-still `2a2b59f76640de5f…`, **byte-identical** to the lock2 delivered above. Before rebuilding,
-`git -C src/DFRoot apply -R --check -` confirms the patch can be reverted cleanly.
+**Reproducibility is content-level, not bit-level.** `git apply -R` to return `src/DFRoot` to pristine
+upstream, then `bash build.sh` (which re-applies the patch) produces an APK whose zip entries are
+byte-identical to the lock2 delivered above — but whose **file hash will differ**, because the signing
+block carries a randomised signature. Measured on four builds: `2a2b59f7…`, `4824a51a…`, `7d493b7b…`,
+`0093700a…`, all with the same content digest:
+
+```text
+content digest   0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+```
+
+Check a build with `python tools/verify_apk.py <apk> --expect-digest 0418c102…`, which also proves the
+native payloads are present and byte-identical to official v4.7. Before rebuilding,
+`git -C src/DFRoot apply -R --check -` confirms the patch can be reverted cleanly. Details: §7.6 of
+`docs/BUILD_RECORD.md`.

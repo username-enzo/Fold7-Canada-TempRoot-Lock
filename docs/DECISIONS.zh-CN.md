@@ -359,7 +359,7 @@ ksud            samsung-v2.2 (uapi: 5)，sha256 488355921cee4fae484f0c9f145784d9
 | W7 | 保留**已撤回的结论**与失败过程，不美化 | 这是本项目最值钱的部分：记录了哪些验证方法不可靠（§P9/P11、§Q10） |
 | W8 | 新增 `tools/analyze_firmware.py` / `apply_lock.py` / `setup_toolchain.sh` | 让"clone → 放自己的固件 → 出报告 → 出 APK"真的成立，而不是只有文字步骤 |
 | W9 | 新增 `docs/KP_CASE_STUDY.md` | 那次 panic 是最好的"为什么不能盲试"教材，值得独立成篇 |
-| W10 | 发布前用本机工具链做**位级自检**：用公开流程重建，APK sha256 必须仍为 `2a2b59f7…` | 证明"给别人的流程"与"已验证的流程"是同一条；对不上就不发布 |
+| W10 | 发布前用本机工具链做**内容级自检**：用公开流程重建，比对 content digest 与 payload 哈希，而不是 APK 文件哈希 | 证明"给别人的流程"与"已验证的流程"是同一条。比文件哈希本身是不成立的判据 —— 签名随机化，见 W11 |
 
 ## X. 公开流程的自检记录
 
@@ -370,8 +370,57 @@ python tools/analyze_firmware.py --boot firmware/boot.img.lz4 --props firmware/g
 
 python tools/apply_lock.py --report analysis/…json  -> no-op（常量已一致）
 bash build.sh --lock analysis/…json
-  -> APK sha256 2a2b59f76640de5fbf144da99214506da80bbe0201ac175f75fe59260e2047a7
-     = lock2 验证产物，逐字节相同
+  -> content digest 0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+     = 与已验证的 lock2 **内容完全一致**
+  -> 当次 APK 文件 sha256 = 2a2b59f7…，但这个值本身不可复现（见 W11）
+```
+
+## W11. APK 文件哈希不可复现 —— 文档里那个说法必须改
+
+发布过程暴露了一条错的说法。`BUILD_RECORD.md` §7.6 原来承诺"重建后 APK sha256 仍是 `2a2b59f7…`"。
+那个值是**在同一个构建目录里**测出来的：Gradle 所有任务 up-to-date，只是把之前签好名的 APK 又打印了
+一遍哈希。照发布出来的步骤从零做的陌生人，永远看不到这个哈希。
+
+用四次独立的全新 clone 重测后：
+
+```text
+2a2b59f76640de5f…   4824a51afda989cc…   7d493b7b08a65659…   0093700a10276f83…
+```
+
+四份 APK 的 29 个 zip 条目名字/大小/CRC-32 完全相同 —— 内容一致；只有 APK Signing Block 里
+336 字节的区域不同。签名带随机量，所以文件哈希不能当复现判据。已做的改动：
+
+| # | 改动 | 位置 |
+|---|---|---|
+| W11a | 把"逐字节可复现"改成"内容可复现"，并把四个实测哈希作为证据贴出来 | `BUILD_RECORD` §7.6、`DELIVERY` §8 §10 |
+| W11b | 定义了一个稳定指纹：对所有条目 `(name, crc32, size)` 求 SHA-256，四次构建都是 `0418c102…` | `BUILD_RECORD` §7.6、`verify_apk.py` |
+| W11c | 新增 `tools/verify_apk.py`，一条命令同时核对 payload 与补丁标记 | `tools/` |
+| W11d | `build.sh` 每次构建后跑这项自检，**没有原生 payload 就直接失败** | `build.sh` |
+
+## W12. 从「发布出来的 tarball」构建时抓到的真 bug
+
+同一次重测还抓到一个只在**纯净源码树**上出现的缺陷：`build.sh` 调
+`extract_native_payloads.py` 时没告诉它源码树在哪，而脚本按 cwd 写 `app/src/main/jniLibs/...`。
+于是在全新 clone 上 payload 落到了树外面，Gradle 编出一个**完全没有 `lib/`** 的 APK
+（65,056 字节 vs 94,911 字节），而构建依旧报成功 —— 能装、不能跑。
+
+之前的轮次没发现，是因为 `src/DFRoot` 里已经有 payload，提取那一步被跳过了。修法：
+
+| # | 改动 |
+|---|---|
+| W12a | `extract_native_payloads.py` 新增 `--dest <源码根>`，所有输出路径基于它解析，与 cwd 无关 |
+| W12b | `build.sh` 传 `--dest "$SRC"` |
+| W12c | `build.sh` 之后调 `verify_apk.py`，缺 payload 的 APK 当场失败，不会再被交出去 |
+| W12d | 坑写进 `BUILD_RECORD.zh-CN.md` §11，并给出"65 KB vs 95 KB"这个一眼可辨的特征 |
+
+两处修完后，从纯净 clone 用**不带任何参数**的 `bash build.sh` 复测：
+
+```text
+[*] applying patches/dfroot-f966w.patch
+destination root: …/dfroot_fresh4
+BUILD SUCCESSFUL
+content digest : 0418c10239f3eb175092a2d69e79b266e4940be13867ea6ed39ff3d96e62e916
+VERDICT: PASS
 ```
 
 `analyze_firmware.py` 还顺带纠正了一个实现错误：起初把 banner 里的
